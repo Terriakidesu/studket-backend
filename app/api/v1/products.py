@@ -107,14 +107,6 @@ MOCK_PRODUCTS = [
         "image": "https://picsum.photos/seed/studket_ball_1/640/640",
         "description": "A basketball.",
     },
-    {
-        "id": "p-014",
-        "name": "Ranier Astodillo",
-        "price": 10,
-        "location": "Talisay City",
-        "image": "https://picsum.photos/seed/studket_ball_1/640/640",
-        "description": "A suspicious individual.",
-    },
 ]
 
 
