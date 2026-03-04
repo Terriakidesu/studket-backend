@@ -7,6 +7,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 USERS: dict[str, dict[str, str]] = {}
 
 
+def auth_error(status_code: int, message: str) -> HTTPException:
+    return HTTPException(status_code=status_code, detail={"error": message})
+
+
 class RegisterRequest(BaseModel):
     email: str
     password: str
@@ -22,12 +26,12 @@ class LoginRequest(BaseModel):
 async def register(payload: RegisterRequest):
     email = payload.email.strip().lower()
     if not email:
-        raise HTTPException(status_code=400, detail="Email is required")
+        raise auth_error(400, "Email is required")
     if not payload.password:
-        raise HTTPException(status_code=400, detail="Password is required")
+        raise auth_error(400, "Password is required")
 
     if email in USERS:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise auth_error(400, "Email already registered")
 
     USERS[email] = {
         "email": email,
@@ -41,11 +45,11 @@ async def register(payload: RegisterRequest):
 async def login(payload: LoginRequest):
     email = payload.email.strip().lower()
     if not email or not payload.password:
-        raise HTTPException(status_code=400, detail="Email and password are required")
+        raise auth_error(400, "Email and password are required")
 
     user = USERS.get(email)
     if not user or user["password"] != payload.password:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise auth_error(401, "Invalid email or password")
 
     return {
         "message": "Login successful",
