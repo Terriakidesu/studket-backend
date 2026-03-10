@@ -5,53 +5,94 @@
 {% block head %}
 <style>
     :root {
-        --bg: #eef3fb;
-        --sidebar: #0f172a;
-        --sidebar-muted: #94a3b8;
-        --sidebar-active: #1d4ed8;
+        --bg: #eef4ff;
+        --bg-deep: #dbeafe;
+        --sidebar: #10203a;
+        --sidebar-muted: #9db1d0;
+        --sidebar-active: #2563eb;
         --panel: #ffffff;
-        --ink: #172033;
-        --muted: #5c667b;
-        --line: #d9e1ef;
+        --panel-soft: rgba(255, 255, 255, 0.78);
+        --ink: #10203a;
+        --muted: #61708a;
+        --line: #d5e1f2;
         --accent: #2563eb;
+        --accent-strong: #1d4ed8;
         --success: #166534;
         --danger: #b42318;
         --warning: #b45309;
     }
     * { box-sizing: border-box; }
+    html, body {
+        min-height: 100%;
+    }
     body {
         margin: 0;
-        background: linear-gradient(180deg, #eaf0fb, #f8fafc 24rem);
+        background:
+            radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 26rem),
+            radial-gradient(circle at 88% 12%, rgba(29, 78, 216, 0.10), transparent 18rem),
+            linear-gradient(135deg, #f8fbff, var(--bg));
         color: var(--ink);
         font-family: "Segoe UI", sans-serif;
     }
     .dashboard-shell {
-        width: 100%;
-        margin: 0;
-        padding: 0;
+        width: min(1380px, calc(100% - 48px));
+        margin: 0 auto;
+        padding: 24px 0 40px;
     }
     .app-shell {
-        display: block;
+        position: relative;
         min-height: 100vh;
-        background: rgba(255, 255, 255, 0.35);
+        padding-left: 304px;
         overflow: hidden;
     }
     .sidebar {
         position: fixed;
-        top: 0;
-        left: 0;
+        top: 24px;
+        left: max(24px, calc((100vw - min(1380px, calc(100% - 48px))) / 2));
         width: 280px;
-        height: 100vh;
-        padding: 24px 18px;
+        height: calc(100vh - 48px);
+        padding: 20px 18px;
         display: flex;
         flex-direction: column;
-        background: linear-gradient(180deg, #0f172a, #111827); color: white;
-        border-right: 1px solid rgba(148, 163, 184, 0.14);
+        background:
+            linear-gradient(180deg, rgba(16, 32, 58, 0.98), rgba(11, 43, 82, 0.98));
+        color: white;
+        border: 1px solid rgba(147, 197, 253, 0.10);
+        border-radius: 28px;
+        box-shadow: 0 28px 68px rgba(15, 23, 42, 0.18);
         z-index: 10;
     }
     .brand {
-        display: block; margin-bottom: 24px; color: white; text-decoration: none;
-        font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+        color: white;
+        text-decoration: none;
+        font-weight: 800;
+        font-size: 1.02rem;
+        letter-spacing: -.02em;
+    }
+    .brand-mark {
+        width: 42px;
+        height: 42px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.10);
+        color: #bfdbfe;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+    .brand-copy {
+        display: grid;
+        gap: 2px;
+    }
+    .brand-copy small {
+        color: var(--sidebar-muted);
+        font-size: .72rem;
+        letter-spacing: .08em;
+        text-transform: uppercase;
     }
     .sidebar-group { margin-bottom: 24px; }
     .sidebar-title {
@@ -60,26 +101,70 @@
     }
     .sidebar-nav { display: grid; gap: 8px; }
     .sidebar-link {
-        display: block; padding: 12px 14px; border-radius: 14px; color: #e2e8f0;
-        text-decoration: none; font-weight: 600; background: rgba(255,255,255,0.02);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 16px;
+        color: #e2e8f0;
+        text-decoration: none;
+        font-weight: 600;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid transparent;
+        transition: background-color .18s ease, border-color .18s ease, transform .18s ease;
     }
-    .sidebar-link:hover, .sidebar-link:focus { background: rgba(37, 99, 235, 0.18); color: white; }
-    .sidebar-link.active { background: var(--sidebar-active); color: white; }
+    .sidebar-link:hover, .sidebar-link:focus {
+        background: rgba(37, 99, 235, 0.16);
+        border-color: rgba(147, 197, 253, 0.12);
+        color: white;
+        transform: translateY(-1px);
+    }
+    .sidebar-link.active {
+        background: linear-gradient(135deg, var(--sidebar-active), var(--accent-strong));
+        color: white;
+        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
+    }
+    .sidebar-link i {
+        width: 18px;
+        text-align: center;
+    }
     .sidebar-footer { margin-top: auto; }
     .main {
         min-width: 0;
-        margin-left: 280px;
-        width: calc(100% - 280px);
-        padding: 22px 20px 36px;
+        width: 100%;
+        padding: 0 0 20px;
     }
     .navbar {
-        display: flex; justify-content: space-between; align-items: center; gap: 16px;
-        margin-bottom: 20px; padding: 18px 20px; background: rgba(255,255,255,.86);
-        border: 1px solid var(--line); border-radius: 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 20px;
+        padding: 18px 20px;
+        background: rgba(255,255,255,.78);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        backdrop-filter: blur(12px);
         box-shadow: 0 18px 40px rgba(15, 23, 42, 0.05);
     }
-    .navbar h1 { margin: 0; font-size: 1.7rem; }
+    .navbar h1 {
+        margin: 0;
+        font-size: clamp(1.5rem, 2.2vw, 1.85rem);
+        letter-spacing: -.04em;
+    }
     .navbar p { margin: 6px 0 0; color: var(--muted); }
+    .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        color: var(--accent-strong);
+        font-size: .8rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
     .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
     .nav-icon {
         width: 42px;
@@ -95,6 +180,7 @@
         border-radius: 999px;
         background: #fff;
         border: 1px solid var(--line);
+        box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.03);
     }
     .profile-avatar {
         width: 38px;
@@ -124,27 +210,58 @@
         align-items: center;
         justify-content: center;
         gap: 8px;
-        min-height: 42px; border-radius: 999px; border: 1px solid var(--line); background: white;
+        min-height: 42px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: white;
         max-width: 100%;
         color: var(--ink); padding: 0 16px; text-decoration: none; font: inherit; font-weight: 600; cursor: pointer;
         line-height: 1.2;
         white-space: nowrap;
         vertical-align: middle;
+        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
     }
-    button.primary { background: var(--accent); color: white; border-color: var(--accent); }
+    .button:hover,
+    button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 24px rgba(16, 32, 58, 0.06);
+    }
+    .button.primary,
+    button.primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        color: white;
+        border-color: transparent;
+        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.20);
+    }
     .grid { display: grid; gap: 18px; }
     .metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .metric {
-        background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 22px;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.78));
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: 22px;
         box-shadow: 0 18px 40px rgba(15, 23, 42, 0.04);
+    }
+    .metric::after {
+        content: "";
+        position: absolute;
+        inset: auto -28px -28px auto;
+        width: 92px;
+        height: 92px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(37, 99, 235, 0.08), transparent 72%);
     }
     .metric small { color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
     .metric strong { display: block; margin-top: 10px; font-size: 2rem; }
     .content-grid { grid-template-columns: 1.2fr .8fr; align-items: start; margin-top: 18px; }
     .stack { display: grid; gap: 18px; }
     .panel {
-        background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 22px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.88), rgba(255,255,255,0.76));
+        border: 1px solid var(--line); border-radius: 24px; padding: 22px;
         box-shadow: 0 18px 40px rgba(15, 23, 42, 0.04);
+        backdrop-filter: blur(8px);
     }
     .panel h2 { margin: 0 0 8px; font-size: 1.1rem; }
     .panel p.lead { margin: 0 0 18px; color: var(--muted); }
@@ -163,15 +280,42 @@
     .danger { color: var(--danger); border-color: rgba(180,35,24,.2); }
     .success-btn { color: var(--success); border-color: rgba(22,101,52,.2); }
     .muted { color: var(--muted); }
+    .detail-grid {
+        display: grid;
+        gap: 12px;
+    }
+    .detail-card {
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255,255,255,0.58);
+    }
+    .value-display {
+        font-size: 2rem;
+        font-weight: 800;
+        letter-spacing: -.04em;
+    }
+    .block-spacer {
+        margin-top: 16px;
+    }
     @media (max-width: 1180px) {
-        .app-shell { min-height: 100vh; border-radius: 0; }
+        .dashboard-shell {
+            width: min(100%, calc(100% - 40px));
+            padding: 20px 0 32px;
+        }
+        .app-shell {
+            min-height: 100vh;
+            border-radius: 0;
+            padding-left: 0;
+        }
         .sidebar {
             position: static;
+            left: auto;
             width: auto;
             height: auto;
             min-height: auto;
-            border-right: 0;
-            border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+            margin-bottom: 20px;
+            border-bottom: 0;
             overflow: visible;
         }
         .main {
@@ -187,6 +331,7 @@
         .actions { width: 100%; }
         .profile-chip { max-width: 100%; }
         .profile-copy span { overflow-wrap: anywhere; }
+        .button, button { width: 100%; }
     }
 </style>
 {% endblock %}
@@ -195,7 +340,13 @@
 <div class="dashboard-shell">
     <div class="app-shell">
         <aside class="sidebar">
-            <a class="brand" href="/"><i class="fa-solid fa-chart-pie" style="margin-right:8px;"></i>Studket Ops</a>
+            <a class="brand" href="/">
+                <span class="brand-mark"><i class="fa-solid fa-chart-pie"></i></span>
+                <span class="brand-copy">
+                    <span>Studket Ops</span>
+                    <small>Internal Dashboard</small>
+                </span>
+            </a>
 
             <div class="sidebar-group">
                 <p class="sidebar-title">Overview</p>
@@ -225,8 +376,8 @@
             <div class="sidebar-footer">
                 <form method="post" action="/logout">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="sidebar-link" style="width:100%; text-align:left; border:0;">
-                        <i class="fa-solid fa-right-from-bracket" style="margin-right:8px;"></i>Log out
+                    <button type="submit" class="sidebar-link" style="text-align:left;">
+                        <i class="fa-solid fa-right-from-bracket"></i>Log out
                     </button>
                 </form>
             </div>
@@ -235,6 +386,7 @@
         <main class="main">
             <section class="navbar">
                 <div>
+                    <div class="eyebrow"><i class="fa-solid fa-shield-halved"></i> Staff Workspace</div>
                     <h1><i class="fa-solid fa-layer-group" style="margin-right:10px;"></i>{{ page_title }}</h1>
                     <p>{{ page_description }}</p>
                 </div>

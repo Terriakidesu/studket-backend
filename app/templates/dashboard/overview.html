@@ -127,8 +127,8 @@
             <h2><i class="fa-solid fa-star-half-stroke" style="margin-right:8px;"></i>Seller Quality Brief</h2>
             <p class="lead">A quick look at the weakest seller rating signal.</p>
             {% if lowest_rated_seller %}
-            <div style="font-size:2rem; font-weight:800;">{{ "%.2f"|format(lowest_rated_seller.average_rating) }}</div>
-            <div style="margin-top:8px;">
+            <div class="value-display">{{ "%.2f"|format(lowest_rated_seller.average_rating) }}</div>
+            <div>
                 <strong>{{ lowest_rated_seller.username }}</strong><br>
                 <span class="muted">{{ lowest_rated_seller.review_count }} reviews logged</span>
             </div>
@@ -153,7 +153,7 @@
                     {% endif %}
                 </span>
             </div>
-            <div class="row-actions" style="margin-top:16px;">
+            <div class="row-actions block-spacer">
                 <a class="button" href="/dashboard/settings"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Settings</a>
             </div>
         </article>
@@ -161,12 +161,12 @@
         <article class="panel">
             <h2><i class="fa-solid fa-id-card" style="margin-right:8px;"></i>Account Brief</h2>
             <p class="lead">Summary of the currently signed-in dashboard account.</p>
-            <div class="grid">
-                <div><strong>Username</strong><br><span class="muted">{{ account.username }}</span></div>
-                <div><strong>Email</strong><br><span class="muted">{{ account.email }}</span></div>
-                <div><strong>Role</strong><br><span class="muted">{{ account.account_type }}</span></div>
+            <div class="detail-grid">
+                <div class="detail-card"><strong>Username</strong><br><span class="muted">{{ account.username }}</span></div>
+                <div class="detail-card"><strong>Email</strong><br><span class="muted">{{ account.email }}</span></div>
+                <div class="detail-card"><strong>Role</strong><br><span class="muted">{{ account.account_type }}</span></div>
             </div>
-            <div class="row-actions" style="margin-top:16px;">
+            <div class="row-actions block-spacer">
                 <a class="button" href="/dashboard/account"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Account Page</a>
             </div>
         </article>
