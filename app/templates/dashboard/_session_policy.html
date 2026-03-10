@@ -1,0 +1,18 @@
+<article class="panel">
+    <h2>Settings</h2>
+    <p class="lead">Management web sessions currently expire after <strong>{{ management_timeout_minutes }}</strong> minutes.</p>
+    {% if is_superadmin %}
+    <form method="post" action="/dashboard/settings/session-timeout">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="mini-grid">
+            <div>
+                <label class="muted" for="minutes">Timeout in minutes</label>
+                <input class="input" id="minutes" type="number" min="5" max="240" name="minutes" value="{{ management_timeout_minutes }}">
+            </div>
+            <div style="display:flex; align-items:end;"><button type="submit" class="primary" style="width:100%;">Update timeout</button></div>
+        </div>
+    </form>
+    {% else %}
+    <div class="muted">Only superadmin can change this setting.</div>
+    {% endif %}
+</article>
