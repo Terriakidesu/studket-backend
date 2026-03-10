@@ -6,7 +6,7 @@ import secrets
 import string
 
 
-PASSWORD_MIN_LENGTH = 12
+PASSWORD_MIN_LENGTH = 8
 PBKDF2_ITERATIONS = 310000
 SESSION_SECRET = os.getenv("SECRET_KEY") or secrets.token_urlsafe(32)
 SUPERADMIN_INVITE_CODE = os.getenv("SUPERADMIN_INVITE_CODE")

@@ -14,6 +14,7 @@ from app.services.auth import (
 
 router = APIRouter(tags=["web-auth"])
 templates = Jinja2Templates(directory="app/templates")
+WEB_ALLOWED_ACCOUNT_TYPES = {"management", "superadmin"}
 
 
 def _ensure_csrf_token(request: Request) -> str:
@@ -33,8 +34,8 @@ def _verify_csrf(request: Request, submitted_token: str) -> None:
 def _render_auth_page(
     request: Request,
     *,
-    active_mode: str = "login",
-    active_role: str = "user",
+    template_name: str,
+    active_role: str = "management",
     error: str | None = None,
     success: str | None = None,
     form_data: dict[str, str] | None = None,
@@ -42,11 +43,10 @@ def _render_auth_page(
 ):
     csrf_token = _ensure_csrf_token(request)
     return templates.TemplateResponse(
-        "auth.html",
+        template_name,
         {
             "request": request,
             "title": "Secure Access",
-            "active_mode": active_mode,
             "active_role": active_role,
             "error": error,
             "success": success,
@@ -61,7 +61,24 @@ def _render_auth_page(
 
 @router.get("/auth", response_class=HTMLResponse)
 def auth_portal(request: Request):
-    return _render_auth_page(request)
+    return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.get("/auth/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    return _render_auth_page(request, template_name="login.html")
+
+
+@router.get("/auth/register", response_class=HTMLResponse)
+def register_page(request: Request):
+    return _render_auth_page(request, template_name="register.html")
+
+
+def _validate_web_account_type(account_type: str) -> str:
+    normalized = account_type.strip().lower()
+    if normalized not in WEB_ALLOWED_ACCOUNT_TYPES:
+        raise AuthServiceError("User accounts can only sign in through the app")
+    return normalized
 
 
 @router.post("/auth/login", response_class=HTMLResponse)
@@ -74,6 +91,18 @@ def login_submit(
     db: Session = Depends(get_db),
 ):
     try:
+        account_type = _validate_web_account_type(account_type)
+    except AuthServiceError as exc:
+        return _render_auth_page(
+            request,
+            template_name="login.html",
+            active_role="management",
+            error=str(exc),
+            form_data={"identity": identity},
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
         _verify_csrf(request, csrf_token)
         account = authenticate_account(
             db,
@@ -84,7 +113,7 @@ def login_submit(
     except AuthServiceError as exc:
         return _render_auth_page(
             request,
-            active_mode="login",
+            template_name="login.html",
             active_role=account_type,
             error=str(exc),
             form_data={"identity": identity},
@@ -116,10 +145,28 @@ def register_submit(
     csrf_token: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    try:
+        account_type = _validate_web_account_type(account_type)
+    except AuthServiceError as exc:
+        return _render_auth_page(
+            request,
+            template_name="register.html",
+            active_role="management",
+            error=str(exc),
+            form_data={
+                "email": email,
+                "username": username,
+                "first_name": first_name,
+                "last_name": last_name,
+                "role_name": role_name,
+            },
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+
     if password != confirm_password:
         return _render_auth_page(
             request,
-            active_mode="register",
+            template_name="register.html",
             active_role=account_type,
             error="Passwords do not match",
             form_data={
@@ -127,7 +174,6 @@ def register_submit(
                 "username": username,
                 "first_name": first_name,
                 "last_name": last_name,
-                "campus": campus,
                 "role_name": role_name,
             },
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -152,7 +198,7 @@ def register_submit(
     except AuthServiceError as exc:
         return _render_auth_page(
             request,
-            active_mode="register",
+            template_name="register.html",
             active_role=account_type,
             error=str(exc),
             form_data={
@@ -160,7 +206,6 @@ def register_submit(
                 "username": username,
                 "first_name": first_name,
                 "last_name": last_name,
-                "campus": campus,
                 "role_name": role_name,
             },
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -168,7 +213,7 @@ def register_submit(
 
     return _render_auth_page(
         request,
-        active_mode="login",
+        template_name="login.html",
         active_role=account_type,
         success="Registration complete. You can sign in now.",
         form_data={"identity": email},
@@ -179,7 +224,10 @@ def register_submit(
 def dashboard(request: Request):
     account = request.session.get("account")
     if not account:
-        return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    if account.get("account_type") not in WEB_ALLOWED_ACCOUNT_TYPES:
+        request.session.clear()
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
 
     csrf_token = _ensure_csrf_token(request)
     return templates.TemplateResponse(
@@ -198,7 +246,7 @@ def logout(request: Request, csrf_token: str = Form(...)):
     try:
         _verify_csrf(request, csrf_token)
     except AuthServiceError:
-        return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
 
     request.session.clear()
-    return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)

@@ -145,18 +145,15 @@
             <article class="panel">
                 <p class="eyebrow">Studket Access</p>
                 <h1>Secure sign-in for campus trading operations.</h1>
-                <p>User, management, and superadmin accounts now have one controlled entry point with hashed passwords, session-based access, and role-specific registration rules.</p>
+                <p>Management and superadmin accounts use this secure web portal. Regular users authenticate only through the app, using the API-backed flow behind the mobile client.</p>
                 <div class="cta-row">
-                    <a class="cta primary" href="/auth">Open Auth Portal</a>
+                    <a class="cta primary" href="/auth/login">Open Login</a>
+                    <a class="cta secondary" href="/auth/register">Open Register</a>
                     <a class="cta secondary" href="/docs">API Docs</a>
                 </div>
             </article>
             <aside class="panel">
                 <div class="grid">
-                    <div class="role">
-                        <strong>User</strong>
-                        <span>Create a marketplace account with profile details and campus information.</span>
-                    </div>
                     <div class="role">
                         <strong>Management</strong>
                         <span>Register staff-facing access with a named management role for moderation and operations.</span>
@@ -164,6 +161,10 @@
                     <div class="role">
                         <strong>Superadmin</strong>
                         <span>Protected registration requires a server-side invite code and shares the same hardened login flow.</span>
+                    </div>
+                    <div class="role">
+                        <strong>User</strong>
+                        <span>User login remains app-only and is intentionally not available through the web portal.</span>
                     </div>
                 </div>
                 <p class="note">Set <code>SECRET_KEY</code> and <code>SUPERADMIN_INVITE_CODE</code> in `.env` for production-grade deployment.</p>

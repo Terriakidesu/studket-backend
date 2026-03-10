@@ -97,7 +97,7 @@
                 <dd>{{ account.account_type }}</dd>
             </dl>
             <div class="actions">
-                <a href="/">Return to portal</a>
+                <a href="/auth/login">Return to login</a>
                 <form method="post" action="/logout">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button type="submit">Log out</button>
