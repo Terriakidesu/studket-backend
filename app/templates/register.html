@@ -30,21 +30,21 @@
         height: 100vh;
         max-height: 100vh;
         display: grid;
-        grid-template-columns: minmax(440px, 540px) minmax(0, 1fr);
+        grid-template-columns: minmax(520px, 1.2fr) minmax(360px, 0.8fr);
         align-items: center;
-        gap: clamp(28px, 5vw, 80px);
+        gap: clamp(32px, 5vw, 88px);
         padding: 24px 32px;
         overflow: hidden;
     }
     .form-wrap {
-        width: min(100%, 420px);
+        width: min(100%, 380px);
         margin: 0 auto;
     }
     .brand {
         display: inline-flex;
         align-items: center;
         gap: 10px;
-        margin-bottom: 20px;
+        margin-bottom: 14px;
         color: var(--ink);
         text-decoration: none;
         font-weight: 800;
@@ -61,16 +61,16 @@
         box-shadow: 0 10px 24px rgba(37, 99, 235, 0.10);
     }
     h1 {
-        margin: 0 0 10px;
-        font-size: clamp(2.2rem, 4vw, 3.1rem);
+        margin: 0 0 8px;
+        font-size: clamp(2rem, 3.4vw, 2.8rem);
         line-height: .98;
         letter-spacing: -.04em;
     }
     .sub {
-        margin: 0 0 14px;
+        margin: 0 0 10px;
         color: var(--muted);
-        line-height: 1.55;
-        font-size: .94rem;
+        line-height: 1.42;
+        font-size: .88rem;
     }
     .alert {
         border-radius: 14px;
@@ -86,18 +86,29 @@
         gap: 10px;
     }
     .role-picker {
+        margin-bottom: 8px;
+    }
+    .role-track {
+        display: grid;
         grid-template-columns: 1fr 1fr;
-        margin-bottom: 12px;
+        gap: 6px;
+        padding: 6px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.72);
+        box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.04);
     }
     .grid {
         grid-template-columns: 1fr 1fr;
     }
     .role-option {
-        padding: 12px 14px;
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.68);
+        padding: 9px 12px;
+        border-radius: 12px;
+        background: transparent;
+        color: var(--muted);
+        font-size: .9rem;
         font-weight: 700;
+        text-align: center;
         cursor: pointer;
     }
     .role-option input {
@@ -106,26 +117,60 @@
         pointer-events: none;
     }
     .role-option.active {
-        border-color: var(--accent);
-        background: rgba(37, 99, 235, 0.08);
+        background: linear-gradient(135deg, var(--accent), #1d4ed8);
+        color: #ffffff;
+        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
+    }
+    .role-help {
+        color: var(--muted);
+        font-size: .8rem;
+        line-height: 1.32;
     }
     .field {
         display: grid;
-        gap: 6px;
-        margin-bottom: 10px;
+        gap: 4px;
+        margin-bottom: 8px;
     }
     .field label {
-        font-size: .84rem;
+        font-size: .78rem;
         font-weight: 700;
     }
     .field input {
-        min-height: 42px;
+        min-height: 38px;
         padding: 0 12px;
         border: 1px solid var(--line);
-        border-radius: 14px;
+        border-radius: 12px;
         background: rgba(255, 255, 255, 0.72);
         color: var(--ink);
         font: inherit;
+    }
+    .password-shell {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 38px;
+        padding: 0 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.72);
+    }
+    .password-shell input {
+        min-height: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        flex: 1;
+    }
+    .toggle-visibility {
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        cursor: pointer;
+        padding: 0;
+        font-size: .82rem;
+        font-weight: 700;
     }
     .conditional {
         display: none;
@@ -135,9 +180,9 @@
     }
     .submit {
         width: 100%;
-        min-height: 46px;
+        min-height: 42px;
         border: 0;
-        border-radius: 16px;
+        border-radius: 14px;
         background: linear-gradient(135deg, var(--accent), #1d4ed8);
         color: white;
         font: inherit;
@@ -145,10 +190,10 @@
         cursor: pointer;
     }
     .meta-links {
-        margin-top: 12px;
+        margin-top: 8px;
         color: var(--muted);
-        line-height: 1.6;
-        font-size: .92rem;
+        line-height: 1.45;
+        font-size: .84rem;
     }
     .meta-links a {
         color: var(--ink);
@@ -158,7 +203,7 @@
     .info-panel {
         height: 100%;
         align-self: stretch;
-        padding: 32px;
+        padding: 26px;
         border-radius: 28px;
         background: linear-gradient(160deg, var(--dark), #0b2b52);
         color: #eff6ff;
@@ -166,31 +211,32 @@
         overflow: hidden;
     }
     .eyebrow {
-        margin: 0 0 14px;
+        margin: 0 0 10px;
         color: #93c5fd;
-        font-size: .92rem;
+        font-size: .86rem;
         font-weight: 700;
         letter-spacing: .08em;
         text-transform: uppercase;
     }
     .info-panel h2 {
-        margin: 0 0 14px;
-        font-size: clamp(1.9rem, 3vw, 2.8rem);
+        margin: 0 0 10px;
+        font-size: clamp(1.7rem, 2.6vw, 2.4rem);
         line-height: 1;
         letter-spacing: -.04em;
     }
     .info-panel p {
-        margin: 0 0 16px;
+        margin: 0 0 12px;
         color: rgba(226, 232, 240, 0.84);
-        line-height: 1.7;
+        line-height: 1.5;
+        font-size: .94rem;
     }
     .info-list {
         display: grid;
-        gap: 12px;
-        margin-top: 22px;
+        gap: 10px;
+        margin-top: 16px;
     }
     .info-item {
-        padding: 14px 16px;
+        padding: 12px 14px;
         border-radius: 16px;
         background: rgba(255, 255, 255, 0.08);
     }
@@ -200,8 +246,8 @@
     }
     .info-item span {
         color: rgba(226, 232, 240, 0.78);
-        font-size: .9rem;
-        line-height: 1.45;
+        font-size: .84rem;
+        line-height: 1.35;
     }
     @media (max-width: 980px) {
         html, body {
@@ -213,10 +259,10 @@
             max-height: none;
             grid-template-columns: 1fr;
             gap: 24px;
+            align-content: center;
             overflow: visible;
         }
-        .grid,
-        .role-picker {
+        .grid {
             grid-template-columns: 1fr;
         }
     }
@@ -237,14 +283,19 @@
         <form method="post" action="/auth/register">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <div class="role-picker">
-                <label class="role-option {% if active_role != 'superadmin' %}active{% endif %}" data-role-card="management">
-                    <input type="radio" name="account_type" value="management" {% if active_role != "superadmin" %}checked{% endif %}>
-                    <span>Management</span>
-                </label>
-                <label class="role-option {% if active_role == 'superadmin' %}active{% endif %}" data-role-card="superadmin">
-                    <input type="radio" name="account_type" value="superadmin" {% if active_role == "superadmin" %}checked{% endif %}>
-                    <span>Superadmin</span>
-                </label>
+                <div class="role-track">
+                    <label class="role-option {% if active_role != 'superadmin' %}active{% endif %}" data-role-card="management">
+                        <input type="radio" name="account_type" value="management" {% if active_role != "superadmin" %}checked{% endif %}>
+                        <span>Management</span>
+                    </label>
+                    <label class="role-option {% if active_role == 'superadmin' %}active{% endif %}" data-role-card="superadmin">
+                        <input type="radio" name="account_type" value="superadmin" {% if active_role == "superadmin" %}checked{% endif %}>
+                        <span>Superadmin</span>
+                    </label>
+                </div>
+                <div class="role-help">
+                    Use `Superadmin` only when creating elevated dashboard access.
+                </div>
             </div>
             <div class="grid">
                 <div class="field">
@@ -265,17 +316,17 @@
                 </div>
                 <div class="field">
                     <label>Password</label>
-                    <input type="password" name="password" autocomplete="new-password" required>
+                    <div class="password-shell">
+                        <input id="registerPassword" type="password" name="password" autocomplete="new-password" required>
+                        <button type="button" class="toggle-visibility" data-toggle-password="registerPassword">Show</button>
+                    </div>
                 </div>
                 <div class="field">
                     <label>Confirm password</label>
-                    <input type="password" name="confirm_password" autocomplete="new-password" required>
-                </div>
-            </div>
-            <div id="managementFields" class="conditional">
-                <div class="field">
-                    <label>Management role</label>
-                    <input type="text" name="role_name" value="{{ form_data.get('role_name', '') }}" placeholder="e.g. moderation, operations, finance">
+                    <div class="password-shell">
+                        <input id="registerConfirmPassword" type="password" name="confirm_password" autocomplete="new-password" required>
+                        <button type="button" class="toggle-visibility" data-toggle-password="registerConfirmPassword">Show</button>
+                    </div>
                 </div>
             </div>
             <div id="superadminFields" class="conditional">
@@ -297,20 +348,20 @@
 
     <aside class="info-panel">
         <p class="eyebrow">Studket Ops</p>
-        <h2>Set up secure internal access.</h2>
-        <p>Create staff accounts for moderation, seller verification, audit review, and platform administration.</p>
+        <h2>Marketplace operations in one place.</h2>
+        <p>Use this registration flow for management and superadmin access to moderation, seller verification, audit visibility, and operational controls.</p>
         <div class="info-list">
             <article class="info-item">
-                <strong>Management</strong>
-                <span>Access day-to-day marketplace oversight tools and moderation workflows.</span>
+                <strong>Management access</strong>
+                <span>Review verification queues, listings, seller quality, and operational activity.</span>
             </article>
             <article class="info-item">
-                <strong>Superadmin</strong>
-                <span>Use elevated controls including session policy management.</span>
+                <strong>Superadmin access</strong>
+                <span>Everything management can do, plus control over dashboard session policy.</span>
             </article>
             <article class="info-item">
-                <strong>Restricted to staff</strong>
-                <span>Regular users do not register through this web experience.</span>
+                <strong>Internal only</strong>
+                <span>Regular users continue to authenticate through the app, not this web console.</span>
             </article>
         </div>
     </aside>
@@ -320,7 +371,6 @@
 {% block scripts %}
 <script>
     const roleCards = document.querySelectorAll("[data-role-card]");
-    const managementFields = document.getElementById("managementFields");
     const superadminFields = document.getElementById("superadminFields");
 
     function syncRoleState() {
@@ -329,8 +379,9 @@
             const input = card.querySelector("input");
             card.classList.toggle("active", input.checked);
         });
-        managementFields.classList.toggle("visible", selected === "management");
-        superadminFields.classList.toggle("visible", selected === "superadmin");
+        if (superadminFields) {
+            superadminFields.classList.toggle("visible", selected === "superadmin");
+        }
     }
 
     roleCards.forEach((card) => {
@@ -339,5 +390,15 @@
     });
 
     syncRoleState();
+
+    document.querySelectorAll("[data-toggle-password]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const input = document.getElementById(button.getAttribute("data-toggle-password"));
+            if (!input) return;
+            const isHidden = input.type === "password";
+            input.type = isHidden ? "text" : "password";
+            button.textContent = isHidden ? "Hide" : "Show";
+        });
+    });
 </script>
 {% endblock %}

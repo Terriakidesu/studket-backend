@@ -1,277 +1,669 @@
 {% extends "base.html" %}
 
-{% block title %}Studket Access{% endblock %}
+{% block title %}Studket Ops{% endblock %}
 
 {% block head %}
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <style>
     :root {
-        --ink: #102033;
-        --muted: #5e6c80;
-        --line: rgba(16, 32, 51, 0.12);
-        --panel: rgba(255, 255, 255, 0.72);
-        --panel-strong: rgba(255, 255, 255, 0.88);
-        --accent: #0f766e;
-        --accent-deep: #0b5d57;
-        --signal: #f59e0b;
+        --bg: #eef4ff;
+        --ink: #10203a;
+        --muted: #61708a;
+        --line: #d5e1f2;
+        --accent: #2563eb;
+        --accent-strong: #1d4ed8;
+        --accent-soft: #dbeafe;
+        --panel: #ffffff;
+        --dark: #10203a;
+        --panel-soft: rgba(255, 255, 255, 0.72);
     }
-
+    html, body {
+        min-height: 100%;
+    }
     body {
-        min-height: 100vh;
         margin: 0;
-        color: var(--ink);
-        font-family: "Manrope", "Segoe UI", sans-serif;
         background:
-            radial-gradient(circle at top left, rgba(15, 118, 110, 0.18), transparent 24rem),
-            radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.14), transparent 22rem),
-            linear-gradient(135deg, #f6f3ee, #ecf7f4 48%, #eef3ff 100%);
+            radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 26rem),
+            radial-gradient(circle at 85% 18%, rgba(29, 78, 216, 0.12), transparent 20rem),
+            linear-gradient(135deg, #f8fbff, var(--bg));
+        color: var(--ink);
+        font-family: "Segoe UI", sans-serif;
     }
-
-    .shell {
-        width: min(1220px, calc(100% - 2rem));
+    .page-shell {
+        width: min(1180px, calc(100% - 48px));
         margin: 0 auto;
-        padding: 1rem 0 4rem;
+        padding: 24px 0 48px;
     }
-
     .topbar {
-        backdrop-filter: blur(16px);
-        background: rgba(255, 255, 255, 0.58);
-        border: 1px solid rgba(255, 255, 255, 0.5);
-        border-radius: 1.5rem;
-        box-shadow: 0 1rem 2.5rem rgba(16, 32, 51, 0.06);
-    }
-
-    .brand-mark {
-        width: 2.5rem;
-        height: 2.5rem;
-        border-radius: 1rem;
-        display: inline-grid;
-        place-items: center;
-        background: linear-gradient(135deg, var(--accent), var(--accent-deep));
-        color: white;
-        font-weight: 800;
-        letter-spacing: -0.04em;
-    }
-
-    .brand-mark i,
-    .feature-icon i {
-        font-size: 1rem;
-    }
-
-    .hero-card,
-    .feature-card,
-    .metric-card,
-    .cta-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 28px;
+        padding: 14px 18px;
         border: 1px solid var(--line);
-        background: var(--panel);
-        backdrop-filter: blur(18px);
-        box-shadow: 0 1.5rem 3rem rgba(16, 32, 51, 0.08);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.76);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 16px 40px rgba(16, 32, 58, 0.06);
     }
-
-    .hero-card {
-        border-radius: 2rem;
+    .topbar-note {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(37, 99, 235, 0.08);
+        color: var(--accent-strong);
+        font-size: .8rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--ink);
+        text-decoration: none;
+        font-weight: 800;
+        font-size: 1.05rem;
+    }
+    .brand-mark {
+        width: 42px;
+        height: 42px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        background: var(--panel);
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.10);
+    }
+    .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
+        gap: clamp(24px, 4vw, 56px);
+        align-items: stretch;
+        margin-bottom: 26px;
+    }
+    .hero-copy {
+        padding: 30px 0;
+        animation: rise .5s ease-out both;
+    }
+    .eyebrow {
+        margin: 0 0 10px;
+        color: var(--accent);
+        font-size: .82rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+    h1 {
+        margin: 0 0 14px;
+        font-size: clamp(2.8rem, 5vw, 4.5rem);
+        line-height: .94;
+        letter-spacing: -.05em;
+        max-width: 12ch;
+    }
+    .lead {
+        margin: 0 0 22px;
+        color: var(--muted);
+        line-height: 1.6;
+        font-size: 1rem;
+        max-width: 50rem;
+    }
+    .sublead {
+        margin: 0 0 22px;
+        color: var(--muted);
+        line-height: 1.5;
+        font-size: .92rem;
+    }
+    .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 22px;
+    }
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 46px;
+        padding: 0 20px;
+        border-radius: 14px;
+        text-decoration: none;
+        font-weight: 700;
+        transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease;
+    }
+    .btn:hover {
+        transform: translateY(-1px);
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        color: #ffffff;
+        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
+    }
+    .btn-secondary {
+        border: 1px solid var(--line);
+        background: var(--panel-soft);
+        color: var(--ink);
+    }
+    .hero-metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+    }
+    .metric-card,
+    .section-card,
+    .feature-card,
+    .deployment-note {
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--panel-soft);
+        box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.04);
+    }
+    .metric-card {
+        position: relative;
         overflow: hidden;
     }
-
+    .metric-card::after {
+        content: "";
+        position: absolute;
+        inset: auto -30px -30px auto;
+        width: 96px;
+        height: 96px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(37, 99, 235, 0.08), transparent 72%);
+        pointer-events: none;
+    }
+    .metric-card strong,
+    .feature-card strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: .95rem;
+    }
+    .metric-value {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 1.55rem;
+        font-weight: 800;
+        letter-spacing: -.04em;
+    }
+    .metric-card span,
+    .feature-card span {
+        color: var(--muted);
+        font-size: .86rem;
+        line-height: 1.45;
+    }
     .hero-panel {
-        padding: 3rem;
+        position: relative;
+        padding: 28px;
+        border-radius: 28px;
+        background: linear-gradient(160deg, var(--dark), #0b2b52);
+        color: #eff6ff;
+        box-shadow: 0 28px 68px rgba(15, 23, 42, 0.18);
+        overflow: hidden;
+        animation: rise .6s ease-out .08s both;
     }
-
-    .eyebrow {
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        font-size: 0.72rem;
-        font-weight: 800;
-        color: var(--accent-deep);
-    }
-
-    .display-title {
-        font-size: clamp(2.8rem, 6vw, 5.6rem);
-        line-height: 0.92;
-        letter-spacing: -0.06em;
-    }
-
-    .hero-copy {
-        font-size: 1.08rem;
-        color: var(--muted);
-        max-width: 42rem;
-    }
-
-    .soft-panel {
-        border-left: 1px solid var(--line);
+    .hero-panel::before {
+        content: "";
+        position: absolute;
+        inset: 0;
         background:
-            linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.84)),
-            linear-gradient(160deg, rgba(15,118,110,0.12), rgba(245,158,11,0.08));
+            linear-gradient(140deg, rgba(255, 255, 255, 0.04), transparent 34%),
+            linear-gradient(0deg, transparent, rgba(147, 197, 253, 0.06));
+        pointer-events: none;
     }
-
-    .feature-card,
-    .metric-card,
-    .cta-card {
-        border-radius: 1.5rem;
+    .hero-panel::after {
+        content: "";
+        position: absolute;
+        inset: auto -80px -80px auto;
+        width: 220px;
+        height: 220px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(147, 197, 253, 0.28), transparent 70%);
     }
-
-    .metric-number {
-        font-size: 2rem;
-        font-weight: 800;
-        letter-spacing: -0.05em;
+    .panel-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #bfdbfe;
+        font-size: .8rem;
+        font-weight: 700;
+        letter-spacing: .03em;
     }
-
-    .section-title {
-        font-size: clamp(1.8rem, 3vw, 2.6rem);
-        letter-spacing: -0.05em;
+    .panel-stat-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin: 18px 0 6px;
     }
-
-    .feature-icon {
-        width: 3rem;
-        height: 3rem;
-        border-radius: 1rem;
-        display: inline-grid;
-        place-items: center;
-        background: rgba(15, 118, 110, 0.12);
-        color: var(--accent-deep);
-        font-weight: 800;
+    .panel-stat {
+        padding: 14px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(147, 197, 253, 0.10);
     }
-
-    .muted-copy {
+    .panel-stat strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 1.15rem;
+        letter-spacing: -.03em;
+    }
+    .panel-stat span {
+        color: rgba(226, 232, 240, 0.76);
+        font-size: .8rem;
+        line-height: 1.35;
+    }
+    .info-panel {
+        align-self: stretch;
+        padding: 28px;
+        border-radius: 28px;
+        background: linear-gradient(160deg, var(--dark), #0b2b52);
+        color: #eff6ff;
+        box-shadow: 0 28px 68px rgba(15, 23, 42, 0.18);
+        overflow: hidden;
+    }
+    .info-panel .eyebrow {
+        color: #93c5fd;
+    }
+    .info-panel h2 {
+        margin: 0 0 12px;
+        font-size: clamp(1.8rem, 2.8vw, 2.5rem);
+        line-height: 1;
+        letter-spacing: -.04em;
+    }
+    .info-panel > p {
+        margin: 0 0 18px;
+        color: rgba(226, 232, 240, 0.84);
+        line-height: 1.55;
+        font-size: .95rem;
+    }
+    .info-list {
+        display: grid;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+    .info-item {
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.08);
+    }
+    .info-item strong {
+        display: block;
+        margin-bottom: 4px;
+    }
+    .info-item span {
+        color: rgba(226, 232, 240, 0.78);
+        font-size: .84rem;
+        line-height: 1.4;
+    }
+    .panel-points {
+        display: grid;
+        gap: 12px;
+        margin-top: 18px;
+    }
+    .panel-point {
+        display: grid;
+        gap: 4px;
+        padding-left: 18px;
+        position: relative;
+    }
+    .panel-point::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 8px;
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #60a5fa;
+        box-shadow: 0 0 0 6px rgba(96, 165, 250, 0.12);
+    }
+    .panel-point strong {
+        font-size: .92rem;
+    }
+    .panel-point span {
+        color: rgba(226, 232, 240, 0.78);
+        font-size: .84rem;
+        line-height: 1.45;
+    }
+    .sections {
+        display: grid;
+        gap: 18px;
+    }
+    .section-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 18px;
+    }
+    .section-card h2 {
+        margin: 0 0 8px;
+        font-size: 1.35rem;
+        letter-spacing: -.03em;
+    }
+    .section-card p,
+    .deployment-note span,
+    .deployment-note code {
+        margin: 0;
+        color: rgba(226, 232, 240, 0.84);
+        font-size: .84rem;
+        line-height: 1.45;
+    }
+    .section-card p {
         color: var(--muted);
+        font-size: .9rem;
+        line-height: 1.55;
     }
-
-    .cta-card {
-        background: linear-gradient(135deg, rgba(16,32,51,0.95), rgba(15,118,110,0.92));
-        color: white;
+    .feature-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 16px;
     }
-
-    .cta-card .muted-copy {
-        color: rgba(255,255,255,0.75);
+    .feature-icon {
+        width: 40px;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 12px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, rgba(37, 99, 235, 0.14), rgba(37, 99, 235, 0.04));
+        color: var(--accent);
+        box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.06);
     }
-
-    @media (max-width: 991.98px) {
-        .hero-panel {
-            padding: 2rem;
+    .feature-card {
+        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .feature-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(37, 99, 235, 0.18);
+        box-shadow:
+            inset 0 0 0 1px rgba(37, 99, 235, 0.05),
+            0 14px 26px rgba(16, 32, 58, 0.06);
+    }
+    .workflow-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 16px;
+    }
+    .workflow-item {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 12px;
+        align-items: start;
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.6));
+        border: 1px solid rgba(37, 99, 235, 0.08);
+    }
+    .workflow-step {
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        font-size: .8rem;
+        font-weight: 800;
+    }
+    .workflow-item strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: .9rem;
+    }
+    .workflow-item span {
+        color: var(--muted);
+        font-size: .85rem;
+        line-height: 1.45;
+    }
+    .footer-cta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 24px;
+        padding: 18px 20px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.72);
+    }
+    .footer-cta strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: .98rem;
+    }
+    .footer-cta span {
+        color: var(--muted);
+        font-size: .88rem;
+    }
+    @keyframes rise {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
         }
-
-        .soft-panel {
-            border-left: 0;
-            border-top: 1px solid var(--line);
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    @media (max-width: 980px) {
+        .page-shell {
+            width: min(100%, calc(100% - 40px));
+            padding: 20px 0 36px;
+        }
+        .hero,
+        .section-row {
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+        .hero-copy {
+            padding: 0;
+        }
+        .hero-metrics {
+            grid-template-columns: 1fr;
+        }
+        .panel-stat-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    @media (max-width: 640px) {
+        .page-shell {
+            width: min(100%, calc(100% - 24px));
+        }
+        .feature-grid {
+            grid-template-columns: 1fr;
+        }
+        .actions {
+            flex-direction: column;
+        }
+        .topbar,
+        .footer-cta {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .topbar-note {
+            white-space: normal;
+        }
+        .btn {
+            width: 100%;
         }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<main class="shell">
-    <nav class="navbar navbar-expand-lg topbar px-3 px-lg-4 py-3 my-3">
-        <div class="container-fluid px-0">
-            <a class="navbar-brand d-flex align-items-center gap-3 m-0" href="/">
-                <span class="brand-mark"><i class="fa-solid fa-shield-halved"></i></span>
-                <span class="fw-bold fs-5 text-dark">Studket Ops</span>
-            </a>
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-                <a class="btn btn-outline-dark rounded-pill px-4" href="/docs">API Docs</a>
-                <a class="btn btn-dark rounded-pill px-4" href="/auth/login">Open Console</a>
-            </div>
+<main class="page-shell">
+    <nav class="topbar">
+        <a class="brand" href="/">
+            <span class="brand-mark"><i class="fa-solid fa-shield-halved"></i></span>
+            <span>Studket Ops</span>
+        </a>
+        <div class="top-actions">
+            <span class="topbar-note"><i class="fa-solid fa-circle-check"></i> Internal operations workspace</span>
+            <a class="btn btn-secondary" href="/docs">API Docs</a>
+            <a class="btn btn-primary" href="/auth/login">Open console</a>
         </div>
     </nav>
 
-    <section class="hero-card mt-4">
-        <div class="row g-0">
-            <div class="col-lg-8">
-                <div class="hero-panel">
-                    <div class="eyebrow mb-3">Marketplace Operations</div>
-                    <h1 class="display-title fw-bold mb-4">Run verification, moderation, and oversight from one modern control room.</h1>
-                    <p class="hero-copy mb-4">Studket’s web console is reserved for management and superadmin access. Review seller verification requests, enforce listing quality, monitor account health, and keep an auditable paper trail across sensitive actions.</p>
-                    <div class="d-flex flex-wrap gap-3">
-                        <a class="btn btn-dark btn-lg rounded-pill px-4" href="/auth/login">Management Login</a>
-                        <a class="btn btn-outline-secondary btn-lg rounded-pill px-4" href="/auth/register">Register Staff Access</a>
-                    </div>
+    <section class="hero">
+        <div class="hero-copy">
+            <p class="eyebrow">Operations Command Center</p>
+            <h1>Professional oversight for a fast-moving marketplace.</h1>
+            <p class="lead">Studket Ops gives internal teams one controlled workspace for verification, moderation, seller quality review, and account governance. The page now reads like a proper product landing surface instead of a simple auth gateway.</p>
+            <p class="sublead">Designed for management and superadmin access only, with a consistent visual path into login and registration.</p>
+            <div class="actions">
+                <a class="btn btn-primary" href="/auth/login">Sign in</a>
+                <a class="btn btn-secondary" href="/auth/register">Register staff access</a>
+            </div>
+            <div class="hero-metrics">
+                <article class="metric-card">
+                    <strong>Access scope</strong>
+                    <span class="metric-value">2 roles</span>
+                    <span>Management and superadmin workflows are separated from regular app users.</span>
+                </article>
+                <article class="metric-card">
+                    <strong>Core focus</strong>
+                    <span class="metric-value">4 modules</span>
+                    <span>Verification, moderation, account oversight, and audit visibility.</span>
+                </article>
+                <article class="metric-card">
+                    <strong>Control model</strong>
+                    <span class="metric-value">24/7</span>
+                    <span>Internal teams can respond quickly while keeping a clear operational trail.</span>
+                </article>
+            </div>
+        </div>
+
+        <aside class="hero-panel">
+            <div class="panel-chip">
+                <i class="fa-solid fa-lock"></i>
+                <span>Restricted web access</span>
+            </div>
+            <h2>Internal dashboard access only.</h2>
+            <p>This console is intentionally reserved for internal operations. Buyers and sellers should continue using the main application, while staff use this surface for sensitive workflow handling.</p>
+            <div class="panel-stat-grid">
+                <article class="panel-stat">
+                    <strong>Role-based</strong>
+                    <span>Separate management access from superadmin controls.</span>
+                </article>
+                <article class="panel-stat">
+                    <strong>Traceable</strong>
+                    <span>Support accountable actions across sensitive workflows.</span>
+                </article>
+            </div>
+            <div class="panel-points">
+                <div class="panel-point">
+                    <strong>Management</strong>
+                    <span>Handle seller verification, marketplace moderation, and operational reviews.</span>
+                </div>
+                <div class="panel-point">
+                    <strong>Superadmin</strong>
+                    <span>Includes elevated access for session policy and platform-level governance controls.</span>
+                </div>
+                <div class="panel-point">
+                    <strong>Production readiness</strong>
+                    <span>Use controlled credentials and environment-backed secrets before issuing staff accounts.</span>
                 </div>
             </div>
-            <div class="col-lg-4 soft-panel">
-                <div class="hero-panel h-100 d-flex flex-column justify-content-between">
-                    <div>
-                        <div class="text-uppercase small fw-bold text-secondary mb-3">Access Model</div>
-                        <p class="muted-copy mb-0">Regular users sign in through the app. The browser experience is intentionally restricted to management and superadmin workflows.</p>
-                    </div>
-                    <div class="row g-3 mt-3">
-                        <div class="col-12">
-                            <div class="metric-card p-3 p-xl-4">
-                                <div class="text-uppercase small fw-bold text-secondary mb-2">Role Control</div>
-                                <div class="metric-number">2</div>
-                                <div class="muted-copy">Web-enabled staff roles: management and superadmin.</div>
-                            </div>
+        </aside>
+    </section>
+
+    <section class="sections">
+        <div class="section-row">
+            <article class="section-card">
+                <p class="eyebrow">Core Workflows</p>
+                <h2>Built around operational decisions.</h2>
+                <p>The landing page now frames the dashboard as a real operations product, with clearer hierarchy and more credible messaging for internal stakeholders.</p>
+                <div class="feature-grid">
+                    <article class="feature-card">
+                        <div class="feature-icon"><i class="fa-solid fa-user-check"></i></div>
+                        <strong>Seller verification</strong>
+                        <span>Review submissions, validate supporting details, and record approval outcomes clearly.</span>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-icon"><i class="fa-solid fa-gavel"></i></div>
+                        <strong>Marketplace moderation</strong>
+                        <span>Act on unsafe listings and problematic posts before trust and quality degrade.</span>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-icon"><i class="fa-solid fa-chart-line"></i></div>
+                        <strong>Operational visibility</strong>
+                        <span>Track activity patterns, seller quality concerns, and account-level operational signals.</span>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-icon"><i class="fa-solid fa-clipboard-check"></i></div>
+                        <strong>Audit-friendly actions</strong>
+                        <span>Support accountable decisions with clearer oversight and traceable staff actions.</span>
+                    </article>
+                </div>
+                <div class="workflow-list">
+                    <div class="workflow-item">
+                        <span class="workflow-step">1</span>
+                        <div>
+                            <strong>Review incoming activity</strong>
+                            <span>Start with verification queues, flagged content, and current operational signals.</span>
                         </div>
-                        <div class="col-12">
-                            <div class="metric-card p-3 p-xl-4">
-                                <div class="text-uppercase small fw-bold text-secondary mb-2">Auditability</div>
-                                <div class="metric-number">24/7</div>
-                                <div class="muted-copy">Important actions are recorded for review and accountability.</div>
-                            </div>
+                    </div>
+                    <div class="workflow-item">
+                        <span class="workflow-step">2</span>
+                        <div>
+                            <strong>Take controlled action</strong>
+                            <span>Approve, reject, moderate, or escalate based on staff role and governance policy.</span>
+                        </div>
+                    </div>
+                    <div class="workflow-item">
+                        <span class="workflow-step">3</span>
+                        <div>
+                            <strong>Maintain visibility</strong>
+                            <span>Keep operational decisions easier to review with clearer accountability and audit support.</span>
                         </div>
                     </div>
                 </div>
-            </div>
+            </article>
+
+            <article class="info-panel">
+                <p class="eyebrow">Deployment Note</p>
+                <h2>Set the right guardrails first.</h2>
+                <p>Before rolling this out to staff, production configuration needs to be in place so registration, sessions, and elevated access stay controlled.</p>
+                <div class="info-list">
+                    <article class="info-item">
+                        <strong><code>SECRET_KEY</code></strong>
+                        <span>Required for secure session handling and token integrity across protected flows.</span>
+                    </article>
+                    <article class="info-item">
+                        <strong><code>SUPERADMIN_INVITE_CODE</code></strong>
+                        <span>Use this to gate superadmin registration and avoid accidental elevated account creation.</span>
+                    </article>
+                    <article class="info-item">
+                        <strong>Staff-only issuance</strong>
+                        <span>Keep browser access limited to internal users who are responsible for marketplace governance.</span>
+                    </article>
+                </div>
+            </article>
         </div>
     </section>
 
-    <section class="py-5">
-        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-3 mb-4">
-            <div>
-                <div class="eyebrow mb-2">Core Modules</div>
-                <h2 class="section-title fw-bold mb-2">Everything the operations team needs, without the clutter.</h2>
-                <p class="muted-copy mb-0">The management console is built around practical workflows instead of generic admin chrome.</p>
-            </div>
+    <section class="footer-cta">
+        <div>
+            <strong>Ready to enter the dashboard?</strong>
+            <span>Use the professional landing page as the front door, then continue into the same auth experience for staff access.</span>
         </div>
-
-        <div class="row g-4">
-            <div class="col-md-6 col-xl-3">
-                <article class="feature-card h-100 p-4">
-                    <div class="feature-icon mb-3"><i class="fa-solid fa-user-check"></i></div>
-                    <h3 class="h5 fw-bold">Seller Verification</h3>
-                    <p class="muted-copy mb-0">Approve or reject seller verification requests with review notes and a visible audit trail.</p>
-                </article>
-            </div>
-            <div class="col-md-6 col-xl-3">
-                <article class="feature-card h-100 p-4">
-                    <div class="feature-icon mb-3"><i class="fa-solid fa-gavel"></i></div>
-                    <h3 class="h5 fw-bold">Marketplace Moderation</h3>
-                    <p class="muted-copy mb-0">Remove inappropriate listings or looking-for posts before they damage trust in the platform.</p>
-                </article>
-            </div>
-            <div class="col-md-6 col-xl-3">
-                <article class="feature-card h-100 p-4">
-                    <div class="feature-icon mb-3"><i class="fa-solid fa-chart-line"></i></div>
-                    <h3 class="h5 fw-bold">Operational Insights</h3>
-                    <p class="muted-copy mb-0">Track buyer and seller counts, surface weak seller performance, and spot risk earlier.</p>
-                </article>
-            </div>
-            <div class="col-md-6 col-xl-3">
-                <article class="feature-card h-100 p-4">
-                    <div class="feature-icon mb-3"><i class="fa-solid fa-sliders"></i></div>
-                    <h3 class="h5 fw-bold">Security Controls</h3>
-                    <p class="muted-copy mb-0">Superadmin can adjust management session timeout while preserving app-only access for users.</p>
-                </article>
-            </div>
-        </div>
-    </section>
-
-    <section class="pb-4">
-        <div class="cta-card p-4 p-lg-5">
-            <div class="row align-items-center g-4">
-                <div class="col-lg-8">
-                    <div class="eyebrow text-warning mb-3">Deployment Note</div>
-                    <h2 class="section-title fw-bold mb-3">Set production secrets before handing this to staff.</h2>
-                    <p class="muted-copy mb-0">Configure <code>SECRET_KEY</code> and <code>SUPERADMIN_INVITE_CODE</code> in your environment so session handling and elevated registration remain controlled.</p>
-                </div>
-                <div class="col-lg-4">
-                    <div class="d-grid gap-3">
-                        <a class="btn btn-light btn-lg rounded-pill" href="/auth/login">Go to Login</a>
-                        <a class="btn btn-outline-light btn-lg rounded-pill" href="/auth/register">Create Staff Account</a>
-                    </div>
-                </div>
-            </div>
+        <div class="top-actions">
+            <a class="btn btn-secondary" href="/auth/register">Create account</a>
+            <a class="btn btn-primary" href="/auth/login">Go to login</a>
         </div>
     </section>
 </main>
