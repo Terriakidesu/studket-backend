@@ -1,0 +1,10 @@
+<article class="panel anchor-section" id="quality">
+    <h2>Seller Quality Signal</h2>
+    <p class="lead">Current lowest-rated seller based on average review score.</p>
+    {% if lowest_rated_seller %}
+    <div style="font-size:2rem; font-weight:800;">{{ "%.2f"|format(lowest_rated_seller.average_rating) }}</div>
+    <div style="margin-top:8px;"><strong>{{ lowest_rated_seller.username }}</strong><br><span class="muted">{{ lowest_rated_seller.review_count }} reviews</span></div>
+    {% else %}
+    <div class="muted">No seller review data yet.</div>
+    {% endif %}
+</article>

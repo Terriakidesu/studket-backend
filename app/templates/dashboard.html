@@ -5,6 +5,10 @@
 {% block head %}
 <style>
     :root {
+        --bg: #eef3fb;
+        --sidebar: #0f172a;
+        --sidebar-muted: #94a3b8;
+        --sidebar-active: #1d4ed8;
         --panel: #ffffff;
         --ink: #172033;
         --muted: #5c667b;
@@ -15,250 +19,318 @@
         --warning: #b45309;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; background: linear-gradient(180deg, #eef3fb, #f8fafc 18rem); color: var(--ink); font-family: "Segoe UI", sans-serif; }
-    .shell { max-width: 1440px; margin: 0 auto; padding: 28px 20px 40px; }
-    .topbar {
-        display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 22px;
-        background: rgba(255,255,255,0.85); border: 1px solid var(--line); border-radius: 24px; padding: 18px 20px;
+    html { scroll-behavior: smooth; }
+    body {
+        margin: 0;
+        background: linear-gradient(180deg, #eaf0fb, #f8fafc 24rem);
+        color: var(--ink);
+        font-family: "Segoe UI", sans-serif;
+    }
+    .app-shell {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        min-height: 100vh;
+    }
+    .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 24px 18px;
+        background: linear-gradient(180deg, #0f172a, #111827);
+        color: white;
+        border-right: 1px solid rgba(148, 163, 184, 0.14);
+    }
+    .brand {
+        display: block;
+        margin-bottom: 24px;
+        color: white;
+        text-decoration: none;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+    .sidebar-group {
+        margin-bottom: 24px;
+    }
+    .sidebar-title {
+        margin: 0 0 10px;
+        font-size: .75rem;
+        text-transform: uppercase;
+        letter-spacing: .12em;
+        color: var(--sidebar-muted);
+    }
+    .sidebar-nav {
+        display: grid;
+        gap: 8px;
+    }
+    .sidebar-link {
+        display: block;
+        padding: 12px 14px;
+        border-radius: 14px;
+        color: #e2e8f0;
+        text-decoration: none;
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.02);
+    }
+    .sidebar-link:hover,
+    .sidebar-link:focus {
+        background: rgba(37, 99, 235, 0.18);
+        color: white;
+    }
+    .sidebar-link.active {
+        background: var(--sidebar-active);
+        color: white;
+    }
+    .sidebar-meta {
+        margin-top: 24px;
+        padding: 16px;
+        border-radius: 18px;
+        background: rgba(255,255,255,.05);
+        color: var(--sidebar-muted);
+        line-height: 1.6;
+    }
+    .main {
+        padding: 22px 20px 36px;
+    }
+    .navbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 20px;
+        padding: 18px 20px;
+        background: rgba(255,255,255,.86);
+        border: 1px solid var(--line);
+        border-radius: 24px;
         box-shadow: 0 18px 40px rgba(15, 23, 42, 0.05);
     }
-    .topbar h1 { margin: 0; font-size: 1.7rem; }
-    .topbar p { margin: 6px 0 0; color: var(--muted); }
-    .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .navbar h1 {
+        margin: 0;
+        font-size: 1.7rem;
+    }
+    .navbar p {
+        margin: 6px 0 0;
+        color: var(--muted);
+    }
+    .actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
     .button, button {
-        min-height: 42px; border-radius: 999px; border: 1px solid var(--line); background: white; color: var(--ink);
-        padding: 0 16px; text-decoration: none; font: inherit; font-weight: 600; cursor: pointer;
+        min-height: 42px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: white;
+        color: var(--ink);
+        padding: 0 16px;
+        text-decoration: none;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
     }
-    button.primary { background: var(--accent); color: white; border-color: var(--accent); }
-    .grid { display: grid; gap: 18px; }
-    .metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 18px; }
+    button.primary {
+        background: var(--accent);
+        color: white;
+        border-color: var(--accent);
+    }
+    .grid {
+        display: grid;
+        gap: 18px;
+    }
+    .metrics {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
     .metric {
-        background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 22px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: 22px;
         box-shadow: 0 18px 40px rgba(15, 23, 42, 0.04);
     }
-    .metric small { color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
-    .metric strong { display: block; margin-top: 10px; font-size: 2rem; }
-    .layout { grid-template-columns: 1.2fr .8fr; align-items: start; }
+    .metric small {
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: .08em;
+    }
+    .metric strong {
+        display: block;
+        margin-top: 10px;
+        font-size: 2rem;
+    }
+    .content-grid {
+        grid-template-columns: 1.2fr .8fr;
+        align-items: start;
+        margin-top: 18px;
+    }
+    .stack {
+        display: grid;
+        gap: 18px;
+    }
     .panel {
-        background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 22px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: 22px;
         box-shadow: 0 18px 40px rgba(15, 23, 42, 0.04);
     }
-    .panel h2 { margin: 0 0 8px; font-size: 1.1rem; }
-    .panel p.lead { margin: 0 0 18px; color: var(--muted); }
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 14px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
-    th { font-size: .82rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-    .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: .8rem; font-weight: 700; }
+    .panel h2 {
+        margin: 0 0 8px;
+        font-size: 1.1rem;
+    }
+    .panel p.lead {
+        margin: 0 0 18px;
+        color: var(--muted);
+    }
+    .table-wrap {
+        overflow-x: auto;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th, td {
+        text-align: left;
+        padding: 14px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+    }
+    th {
+        font-size: .82rem;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: var(--muted);
+    }
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: .8rem;
+        font-weight: 700;
+    }
     .badge.pending { background: rgba(180, 83, 9, .12); color: var(--warning); }
     .badge.approved { background: rgba(22, 101, 52, .12); color: var(--success); }
     .badge.rejected { background: rgba(180, 35, 24, .12); color: var(--danger); }
-    .stack { display: grid; gap: 18px; }
-    .mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .input, textarea { width: 100%; border-radius: 14px; border: 1px solid var(--line); padding: 10px 12px; font: inherit; background: #fff; }
-    textarea { min-height: 78px; resize: vertical; }
-    .row-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .mini-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    .input, textarea {
+        width: 100%;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        padding: 10px 12px;
+        font: inherit;
+        background: #fff;
+    }
+    textarea {
+        min-height: 78px;
+        resize: vertical;
+    }
+    .row-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+    }
     .danger { color: var(--danger); border-color: rgba(180,35,24,.2); }
     .success-btn { color: var(--success); border-color: rgba(22,101,52,.2); }
     .muted { color: var(--muted); }
-    @media (max-width: 1100px) { .metrics, .layout { grid-template-columns: 1fr; } }
+    .anchor-section {
+        scroll-margin-top: 24px;
+    }
+    @media (max-width: 1180px) {
+        .app-shell { grid-template-columns: 1fr; }
+        .sidebar {
+            position: static;
+            height: auto;
+            border-right: 0;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+        }
+    }
+    @media (max-width: 1100px) {
+        .metrics, .content-grid, .mini-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<main class="shell">
-    <section class="topbar">
-        <div>
-            <h1>Marketplace Operations Dashboard</h1>
-            <p>Signed in as <strong>{{ account.username }}</strong> ({{ account.account_type }}).</p>
-        </div>
-        <div class="actions">
-            <a class="button" href="/auth/login">Return to login</a>
-            <form method="post" action="/logout">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit" class="primary">Log out</button>
-            </form>
-        </div>
-    </section>
+<div class="app-shell">
+    <aside class="sidebar">
+        <a class="brand" href="/">Studket Ops</a>
 
-    <section class="grid metrics">
-        <article class="metric"><small>Total Users</small><strong>{{ metrics.total_users }}</strong></article>
-        <article class="metric"><small>Buyers</small><strong>{{ metrics.buyers_count }}</strong></article>
-        <article class="metric"><small>Sellers</small><strong>{{ metrics.sellers_count }}</strong></article>
-        <article class="metric"><small>Active Listings</small><strong>{{ metrics.listings_count }}</strong></article>
-    </section>
-
-    <section class="grid layout">
-        <div class="stack">
-            <article class="panel">
-                <h2>Seller Verification Requests</h2>
-                <p class="lead">Review pending seller verification submissions and approve or reject them directly.</p>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Seller</th>
-                                <th>Status</th>
-                                <th>Submitted</th>
-                                <th>Notes</th>
-                                <th>Review</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for request_row in verification_requests %}
-                            <tr>
-                                <td><strong>{{ request_row.username }}</strong><br><span class="muted">{{ request_row.email }}</span></td>
-                                <td><span class="badge {{ request_row.status }}">{{ request_row.status }}</span></td>
-                                <td>{{ request_row.created_at or "-" }}</td>
-                                <td>
-                                    {{ request_row.submission_note or "No submission note." }}
-                                    {% if request_row.review_note %}
-                                    <div class="muted" style="margin-top:8px;">Last review: {{ request_row.review_note }}</div>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <form method="post" action="/dashboard/verifications/{{ request_row.request_id }}/approve">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                        <textarea name="review_note" placeholder="Optional approval note"></textarea>
-                                        <div class="row-actions"><button type="submit" class="success-btn">Approve</button></div>
-                                    </form>
-                                    <form method="post" action="/dashboard/verifications/{{ request_row.request_id }}/reject" style="margin-top:8px;">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                        <textarea name="review_note" placeholder="Optional rejection note"></textarea>
-                                        <div class="row-actions"><button type="submit" class="danger">Reject</button></div>
-                                    </form>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr><td colspan="5" class="muted">No seller verification requests yet.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </article>
-
-            <article class="panel">
-                <h2>Listing Moderation Queue</h2>
-                <p class="lead">Remove inappropriate listings and looking-for posts from the marketplace.</p>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Listing</th>
-                                <th>Type</th>
-                                <th>Seller</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for listing in listings %}
-                            <tr>
-                                <td><strong>{{ listing.title }}</strong><br><span class="muted">#{{ listing.listing_id }} · {{ listing.created_at or "-" }}</span></td>
-                                <td>{{ listing.listing_type or "unknown" }}</td>
-                                <td>{{ listing.seller_username or "unknown" }}</td>
-                                <td>{{ listing.status or "unknown" }}</td>
-                                <td>
-                                    <form method="post" action="/dashboard/listings/{{ listing.listing_id }}/delete">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                        <button type="submit" class="danger">Delete</button>
-                                    </form>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr><td colspan="5" class="muted">No listings available for moderation.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </article>
+        <div class="sidebar-group">
+            <p class="sidebar-title">Overview</p>
+            <nav class="sidebar-nav">
+                <a class="sidebar-link active" href="#overview">Dashboard</a>
+                <a class="sidebar-link" href="#verification">Seller Verification</a>
+                <a class="sidebar-link" href="#moderation">Listing Moderation</a>
+            </nav>
         </div>
 
-        <div class="stack">
-            <article class="panel">
-                <h2>Seller Quality Signal</h2>
-                <p class="lead">Current lowest-rated seller based on average review score.</p>
-                {% if lowest_rated_seller %}
-                <div style="font-size:2rem; font-weight:800;">{{ "%.2f"|format(lowest_rated_seller.average_rating) }}</div>
-                <div style="margin-top:8px;"><strong>{{ lowest_rated_seller.username }}</strong><br><span class="muted">{{ lowest_rated_seller.review_count }} reviews</span></div>
-                {% else %}
-                <div class="muted">No seller review data yet.</div>
-                {% endif %}
-            </article>
+        <div class="sidebar-group">
+            <p class="sidebar-title">Insights</p>
+            <nav class="sidebar-nav">
+                <a class="sidebar-link" href="#quality">Seller Quality</a>
+                <a class="sidebar-link" href="#session-policy">Session Policy</a>
+                <a class="sidebar-link" href="#audit">Audit Logs</a>
+            </nav>
+        </div>
 
-            <article class="panel">
-                <h2>Session Policy</h2>
-                <p class="lead">Management web sessions currently expire after <strong>{{ management_timeout_minutes }}</strong> minutes.</p>
-                {% if is_superadmin %}
-                <form method="post" action="/dashboard/settings/session-timeout">
+        <div class="sidebar-group">
+            <p class="sidebar-title">Account</p>
+            <nav class="sidebar-nav">
+                <a class="sidebar-link" href="#account">Account Snapshot</a>
+                <a class="sidebar-link" href="/auth/login">Back to Login</a>
+            </nav>
+        </div>
+
+        <div class="sidebar-meta">
+            Signed in as <strong style="color:white;">{{ account.username }}</strong><br>
+            Role: {{ account.account_type }}<br>
+            {% if is_superadmin %}
+            Superadmin controls are enabled.
+            {% else %}
+            Management moderation tools are enabled.
+            {% endif %}
+        </div>
+    </aside>
+
+    <main class="main">
+        <section class="navbar" id="overview">
+            <div>
+                <h1>Marketplace Operations Dashboard</h1>
+                <p>Moderation, verification, user metrics, and audit visibility in one place.</p>
+            </div>
+            <div class="actions">
+                <a class="button" href="/auth/login">Return to login</a>
+                <form method="post" action="/logout">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <div class="mini-grid">
-                        <div>
-                            <label class="muted" for="minutes">Timeout in minutes</label>
-                            <input class="input" id="minutes" type="number" min="5" max="240" name="minutes" value="{{ management_timeout_minutes }}">
-                        </div>
-                        <div style="display:flex; align-items:end;"><button type="submit" class="primary" style="width:100%;">Update timeout</button></div>
-                    </div>
+                    <button type="submit" class="primary">Log out</button>
                 </form>
-                {% else %}
-                <div class="muted">Only superadmin can change this setting.</div>
-                {% endif %}
-            </article>
+            </div>
+        </section>
 
-            <article class="panel">
-                <h2>Account Snapshot</h2>
-                <p class="lead">Current web session details.</p>
-                <div class="grid">
-                    <div><strong>Account ID</strong><br><span class="muted">{{ account.account_id }}</span></div>
-                    <div><strong>Email</strong><br><span class="muted">{{ account.email }}</span></div>
-                    <div><strong>Role</strong><br><span class="muted">{{ account.account_type }}</span></div>
-                </div>
-            </article>
+        {% include "dashboard/_overview_metrics.html" %}
 
-            <article class="panel">
-                <h2>Recent Audit Logs</h2>
-                <p class="lead">Important management and superadmin activity across the web console.</p>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Actor</th>
-                                <th>Action</th>
-                                <th>Target</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for log in recent_audit_logs %}
-                            <tr>
-                                <td>{{ log.created_at or "-" }}</td>
-                                <td>
-                                    <strong>{{ log.actor_username or "system" }}</strong><br>
-                                    <span class="muted">{{ log.actor_role or "-" }}</span>
-                                </td>
-                                <td>
-                                    <strong>{{ log.action }}</strong>
-                                    {% if log.details %}
-                                    <div class="muted">{{ log.details }}</div>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {{ log.target_type or "-" }}
-                                    {% if log.target_label %}
-                                    <div class="muted">{{ log.target_label }}</div>
-                                    {% elif log.target_id %}
-                                    <div class="muted">{{ log.target_id }}</div>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr><td colspan="4" class="muted">No audit logs recorded yet.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </article>
-        </div>
-    </section>
-</main>
+        <section class="grid content-grid">
+            <div class="stack">
+                {% include "dashboard/_verification.html" %}
+                {% include "dashboard/_moderation.html" %}
+            </div>
+
+            <div class="stack">
+                {% include "dashboard/_quality.html" %}
+                {% include "dashboard/_session_policy.html" %}
+                {% include "dashboard/_account.html" %}
+                {% include "dashboard/_audit.html" %}
+            </div>
+        </section>
+    </main>
+</div>
 {% endblock %}

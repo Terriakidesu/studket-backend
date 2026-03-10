@@ -1,0 +1,35 @@
+<article class="panel anchor-section" id="moderation">
+    <h2>Listing Moderation Queue</h2>
+    <p class="lead">Remove inappropriate listings and looking-for posts from the marketplace.</p>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Listing</th>
+                    <th>Type</th>
+                    <th>Seller</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for listing in listings %}
+                <tr>
+                    <td><strong>{{ listing.title }}</strong><br><span class="muted">#{{ listing.listing_id }} · {{ listing.created_at or "-" }}</span></td>
+                    <td>{{ listing.listing_type or "unknown" }}</td>
+                    <td>{{ listing.seller_username or "unknown" }}</td>
+                    <td>{{ listing.status or "unknown" }}</td>
+                    <td>
+                        <form method="post" action="/dashboard/listings/{{ listing.listing_id }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="muted">No listings available for moderation.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</article>
