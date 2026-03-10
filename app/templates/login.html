@@ -4,97 +4,277 @@
 
 {% block head %}
 <style>
+    :root {
+        --bg: #eef4ff;
+        --ink: #10203a;
+        --muted: #61708a;
+        --line: #d5e1f2;
+        --accent: #2563eb;
+        --accent-2: #0f766e;
+        --panel: #ffffff;
+        --dark: #10203a;
+    }
+    html, body {
+        height: 100%;
+    }
     body {
-        min-height: 100vh;
         margin: 0;
         background:
-            radial-gradient(circle at top right, rgba(13, 110, 253, 0.18), transparent 22rem),
-            linear-gradient(145deg, #f7f3eb, #ecf4ff 55%, #eef8f5);
+            radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 26rem),
+            linear-gradient(135deg, #f8fbff, var(--bg));
+        color: var(--ink);
         font-family: "Segoe UI", sans-serif;
     }
-    .container { max-width: 1120px; margin: 0 auto; padding: 40px 20px; }
-    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; }
-    .topbar a { text-decoration: none; color: #0f172a; font-weight: 600; }
-    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    .card {
-        border-radius: 28px; padding: 32px; box-shadow: 0 24px 54px rgba(15, 23, 42, 0.08);
-        border: 1px solid rgba(15, 23, 42, 0.08);
+    .auth-shell {
+        min-height: 100dvh;
+        display: grid;
+        grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+        align-items: center;
+        gap: clamp(32px, 5vw, 88px);
+        padding: 24px 32px;
     }
-    .hero { background: rgba(17, 24, 39, 0.92); color: #f8fafc; }
-    .panel { background: rgba(255, 255, 255, 0.94); }
-    .roles { display: grid; gap: 14px; margin-top: 24px; }
-    .role { border-radius: 18px; padding: 16px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.06); }
-    .alert { border-radius: 18px; padding: 14px 16px; margin-bottom: 16px; }
+    .form-wrap {
+        width: min(100%, 380px);
+        margin: 0 auto;
+    }
+    .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 28px;
+        color: var(--ink);
+        text-decoration: none;
+        font-weight: 800;
+        font-size: 1.05rem;
+    }
+    .brand-mark {
+        width: 42px;
+        height: 42px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        background: var(--panel);
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.10);
+    }
+    h1 {
+        margin: 0 0 18px;
+        font-size: clamp(2.8rem, 5vw, 4rem);
+        line-height: .95;
+        letter-spacing: -.04em;
+    }
+    .alert {
+        border-radius: 14px;
+        padding: 12px 14px;
+        margin-bottom: 14px;
+        font-size: .95rem;
+    }
     .alert.error { background: rgba(180, 35, 24, 0.08); color: #b42318; }
     .alert.success { background: rgba(22, 101, 52, 0.08); color: #166534; }
-    .role-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
-    .role-option { border: 1px solid rgba(15, 23, 42, 0.12); border-radius: 18px; padding: 16px; }
-    .role-option.active { border-color: #2563eb; background: rgba(37, 99, 235, 0.06); }
-    .field { display: grid; gap: 8px; margin-bottom: 16px; }
-    .field label { font-weight: 600; color: #0f172a; }
-    .field input { min-height: 50px; border-radius: 16px; border: 1px solid rgba(15, 23, 42, 0.12); padding: 0 14px; font: inherit; }
-    .submit {
-        width: 100%; min-height: 52px; border: 0; border-radius: 18px;
-        background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; font-weight: 700; cursor: pointer;
+    .role-picker {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 18px;
     }
-    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+    .role-option {
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.68);
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .role-option input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+    .role-option.active {
+        border-color: var(--accent);
+        background: rgba(37, 99, 235, 0.08);
+    }
+    .field {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+    .field label {
+        font-size: .9rem;
+        font-weight: 700;
+    }
+    .input-shell {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 54px;
+        padding: 0 16px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.72);
+    }
+    .input-shell i {
+        color: var(--muted);
+    }
+    .input-shell input {
+        width: 100%;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--ink);
+        font: inherit;
+    }
+    .remember {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 6px 0 18px;
+    }
+    .submit {
+        width: 100%;
+        min-height: 54px;
+        border: 0;
+        border-radius: 16px;
+        background: linear-gradient(135deg, var(--accent), #1d4ed8);
+        color: white;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .meta-links {
+        margin-top: 16px;
+        color: var(--muted);
+        line-height: 1.7;
+    }
+    .meta-links a {
+        color: var(--ink);
+        text-decoration: none;
+        font-weight: 700;
+    }
+    .info-panel {
+        height: 100%;
+        align-self: stretch;
+        padding: 40px;
+        border-radius: 28px;
+        background: linear-gradient(160deg, var(--dark), #0b2b52);
+        color: #eff6ff;
+        box-shadow: 0 28px 68px rgba(15, 23, 42, 0.18);
+    }
+    .eyebrow {
+        margin: 0 0 14px;
+        color: #93c5fd;
+        font-size: .92rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+    .info-panel h2 {
+        margin: 0 0 14px;
+        font-size: clamp(2rem, 3vw, 3rem);
+        line-height: 1;
+        letter-spacing: -.04em;
+    }
+    .info-panel p {
+        margin: 0 0 16px;
+        color: rgba(226, 232, 240, 0.84);
+        line-height: 1.7;
+    }
+    .info-list {
+        display: grid;
+        gap: 12px;
+        margin-top: 24px;
+    }
+    .info-item {
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.08);
+    }
+    .info-item strong {
+        display: block;
+        margin-bottom: 4px;
+    }
+    .info-item span {
+        color: rgba(226, 232, 240, 0.78);
+        font-size: .92rem;
+        line-height: 1.5;
+    }
+    @media (max-width: 980px) {
+        .auth-shell {
+            grid-template-columns: 1fr;
+            gap: 24px;
+            align-content: center;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<main class="container">
-    <div class="topbar">
-        <a href="/"><i class="fa-solid fa-shield-halved" style="margin-right:8px;"></i>Studket</a>
-        <div style="display:flex; gap:16px; flex-wrap:wrap;">
-            <a href="/auth/register"><i class="fa-solid fa-user-plus" style="margin-right:6px;"></i>Create account</a>
-            <a href="/docs"><i class="fa-solid fa-book-open" style="margin-right:6px;"></i>API Docs</a>
-        </div>
-    </div>
-    <section class="layout">
-        <article class="card hero">
-            <p style="letter-spacing:.22em; text-transform:uppercase; font-size:12px; color:#7dd3fc; margin:0 0 14px;"><i class="fa-solid fa-desktop" style="margin-right:6px;"></i>Web Console</p>
-            <h1 style="font-size:clamp(2.2rem, 5vw, 4rem); line-height:.95; margin:0 0 16px;">Operations login for management and superadmin.</h1>
-            <p style="color:#cbd5e1; line-height:1.7;">Use this web sign-in for moderation, review queues, and marketplace oversight. Regular users continue to authenticate only through the app.</p>
-            <div class="roles">
-                <div class="role">
-                    <strong><i class="fa-solid fa-user-tie" style="margin-right:8px;"></i>Management</strong>
-                    <div style="color:#cbd5e1;">See verification requests, moderation queues, user metrics, and seller quality insights.</div>
-                </div>
-                <div class="role">
-                    <strong><i class="fa-solid fa-user-shield" style="margin-right:8px;"></i>Superadmin</strong>
-                    <div style="color:#cbd5e1;">Everything management can do, plus control over the management session timeout.</div>
-                </div>
+<main class="auth-shell">
+    <section class="form-wrap">
+        <a class="brand" href="/">
+            <span class="brand-mark"><i class="fa-solid fa-shield-halved"></i></span>
+            <span>Studket</span>
+        </a>
+        <h1>Sign in</h1>
+        {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+        {% if success %}<div class="alert success">{{ success }}</div>{% endif %}
+        <form method="post" action="/auth/login">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="role-picker">
+                <label class="role-option {% if active_role != 'superadmin' %}active{% endif %}" data-role-card="management">
+                    <input type="radio" name="account_type" value="management" {% if active_role != "superadmin" %}checked{% endif %}>
+                    <span>Management</span>
+                </label>
+                <label class="role-option {% if active_role == 'superadmin' %}active{% endif %}" data-role-card="superadmin">
+                    <input type="radio" name="account_type" value="superadmin" {% if active_role == "superadmin" %}checked{% endif %}>
+                    <span>Superadmin</span>
+                </label>
             </div>
-        </article>
-        <section class="card panel">
-            <h2 style="margin:0 0 8px;"><i class="fa-solid fa-right-to-bracket" style="margin-right:8px;"></i>Sign in</h2>
-            <p style="color:#64748b; margin:0 0 18px;">Choose your role and continue to the dashboard.</p>
-            {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
-            {% if success %}<div class="alert success">{{ success }}</div>{% endif %}
-            <form method="post" action="/auth/login">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <div class="role-picker">
-                    <label class="role-option {% if active_role != 'superadmin' %}active{% endif %}" data-role-card="management">
-                        <input type="radio" name="account_type" value="management" {% if active_role != "superadmin" %}checked{% endif %}>
-                        <strong><i class="fa-solid fa-briefcase" style="margin-right:6px;"></i>Management</strong>
-                    </label>
-                    <label class="role-option {% if active_role == 'superadmin' %}active{% endif %}" data-role-card="superadmin">
-                        <input type="radio" name="account_type" value="superadmin" {% if active_role == "superadmin" %}checked{% endif %}>
-                        <strong><i class="fa-solid fa-crown" style="margin-right:6px;"></i>Superadmin</strong>
-                    </label>
-                </div>
-                <div class="field">
-                    <label>Email or username</label>
+            <div class="field">
+                <label>Email Address</label>
+                <div class="input-shell">
+                    <i class="fa-regular fa-envelope"></i>
                     <input type="text" name="identity" value="{{ form_data.get('identity', '') }}" autocomplete="username" required>
                 </div>
-                <div class="field">
-                    <label>Password</label>
+            </div>
+            <div class="field">
+                <label>Password</label>
+                <div class="input-shell">
+                    <i class="fa-solid fa-lock"></i>
                     <input type="password" name="password" autocomplete="current-password" required>
                 </div>
-                <button class="submit" type="submit"><i class="fa-solid fa-lock" style="margin-right:8px;"></i>Sign in securely</button>
-            </form>
-        </section>
+            </div>
+            <label class="remember">
+                <input type="checkbox" name="remember_me" value="1">
+                <span>Remember me</span>
+            </label>
+            <button class="submit" type="submit">Sign in</button>
+        </form>
+        <div class="meta-links">
+            <div>Don't have an account? <a href="/auth/register">Sign up</a></div>
+            <div><a href="/docs">API Docs</a></div>
+        </div>
     </section>
+
+    <aside class="info-panel">
+        <p class="eyebrow">Studket Ops</p>
+        <h2>Marketplace operations in one place.</h2>
+        <p>Use this web sign-in for management and superadmin access to moderation, seller verification, audit visibility, and operational controls.</p>
+        <div class="info-list">
+            <article class="info-item">
+                <strong>Management access</strong>
+                <span>Review verification queues, listings, seller quality, and operational activity.</span>
+            </article>
+            <article class="info-item">
+                <strong>Superadmin access</strong>
+                <span>Everything management can do, plus control over dashboard session policy.</span>
+            </article>
+            <article class="info-item">
+                <strong>Internal only</strong>
+                <span>Regular users continue to authenticate through the app, not this web console.</span>
+            </article>
+        </div>
+    </aside>
 </main>
 {% endblock %}
 
