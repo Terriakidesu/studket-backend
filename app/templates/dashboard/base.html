@@ -76,6 +76,7 @@
         justify-content: space-between;
         gap: 12px;
         margin-bottom: 24px;
+        min-height: 48px;
     }
     .sidebar-toggle {
         width: 42px;
@@ -98,6 +99,9 @@
         font-size: 1.02rem;
         letter-spacing: -.02em;
         min-width: 0;
+        overflow: hidden;
+        flex: 1 1 auto;
+        transition: opacity .16s ease, flex-basis .16s ease, max-width .16s ease;
     }
     .brand-mark {
         width: 42px;
@@ -114,6 +118,7 @@
         display: grid;
         gap: 2px;
         transition: opacity .16s ease, transform .16s ease;
+        min-width: 0;
     }
     .brand-copy small {
         color: var(--sidebar-muted);
@@ -122,14 +127,34 @@
         text-transform: uppercase;
     }
     .app-shell.sidebar-collapsed .brand {
-        justify-content: center;
-        width: 100%;
+        opacity: 0;
+        width: 0;
+        min-width: 0;
+        flex: 0 0 0;
+        max-width: 0;
+        overflow: hidden;
+        pointer-events: none;
     }
     .app-shell.sidebar-collapsed .brand-copy {
         opacity: 0;
         width: 0;
         overflow: hidden;
         transform: translateX(-6px);
+    }
+    .app-shell.sidebar-collapsed .sidebar-head {
+        justify-content: center;
+        gap: 0;
+    }
+    .app-shell.sidebar-collapsed .sidebar-toggle {
+        width: 48px;
+        min-width: 48px;
+        height: 48px;
+        flex: 0 0 48px;
+        border-radius: 16px;
+        margin: 0 auto;
+    }
+    .app-shell:not(.sidebar-collapsed) .sidebar-toggle {
+        margin-left: auto;
     }
     .sidebar-group { margin-bottom: 24px; }
     .sidebar-title {
@@ -139,10 +164,12 @@
     }
     .sidebar-nav { display: grid; gap: 8px; }
     .sidebar-link {
+        position: relative;
         display: flex;
         align-items: center;
         gap: 10px;
         width: 100%;
+        min-width: 0;
         padding: 12px 14px;
         border-radius: 16px;
         color: #e2e8f0;
@@ -169,8 +196,12 @@
         flex: 0 0 18px;
     }
     .sidebar-text {
+        min-width: 0;
+        flex: 1 1 auto;
         transition: opacity .16s ease, transform .16s ease;
         white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .sidebar-footer { margin-top: auto; }
     .app-shell.sidebar-collapsed .sidebar-group {
@@ -185,6 +216,10 @@
     .app-shell.sidebar-collapsed .sidebar-link {
         justify-content: center;
         padding: 12px;
+    }
+    .app-shell.sidebar-collapsed .sidebar-link i {
+        width: 100%;
+        flex: 0 0 100%;
     }
     .app-shell.sidebar-collapsed .sidebar-text {
         opacity: 0;
@@ -456,7 +491,6 @@
                 <p class="sidebar-title">Insights</p>
                 <nav class="sidebar-nav">
                     <a class="sidebar-link {% if active_page == 'quality' %}active{% endif %}" href="/dashboard/quality" title="Seller Quality"><i class="fa-solid fa-star-half-stroke"></i><span class="sidebar-text">Seller Quality</span></a>
-                    <a class="sidebar-link {% if active_page == 'settings' %}active{% endif %}" href="/dashboard/settings" title="Settings"><i class="fa-solid fa-sliders"></i><span class="sidebar-text">Settings</span></a>
                     <a class="sidebar-link {% if active_page == 'audit' %}active{% endif %}" href="/dashboard/audit" title="Audit Logs"><i class="fa-solid fa-clock-rotate-left"></i><span class="sidebar-text">Audit Logs</span></a>
                 </nav>
             </div>
@@ -469,6 +503,12 @@
             </div>
 
             <div class="sidebar-footer">
+                <div class="sidebar-group">
+                    <p class="sidebar-title">System</p>
+                    <nav class="sidebar-nav">
+                        <a class="sidebar-link {% if active_page == 'settings' %}active{% endif %}" href="/dashboard/settings" title="Settings"><i class="fa-solid fa-sliders"></i><span class="sidebar-text">Settings</span></a>
+                    </nav>
+                </div>
                 <form method="post" action="/logout">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button type="submit" class="sidebar-link" style="text-align:left;" title="Log out">
