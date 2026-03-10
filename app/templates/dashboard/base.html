@@ -35,43 +35,69 @@
         font-family: "Segoe UI", sans-serif;
     }
     .dashboard-shell {
-        width: min(1380px, calc(100% - 48px));
-        margin: 0 auto;
-        padding: 24px 0 40px;
+        width: 100%;
+        margin: 0;
+        padding: 0;
     }
     .app-shell {
         position: relative;
         min-height: 100vh;
-        padding-left: 304px;
+        padding-left: 280px;
         overflow: hidden;
+        transition: padding-left .22s ease;
     }
     .sidebar {
         position: fixed;
-        top: 24px;
-        left: max(24px, calc((100vw - min(1380px, calc(100% - 48px))) / 2));
+        top: 0;
+        left: 0;
         width: 280px;
-        height: calc(100vh - 48px);
+        height: 100vh;
         padding: 20px 18px;
         display: flex;
         flex-direction: column;
         background:
             linear-gradient(180deg, rgba(16, 32, 58, 0.98), rgba(11, 43, 82, 0.98));
         color: white;
-        border: 1px solid rgba(147, 197, 253, 0.10);
-        border-radius: 28px;
+        border-right: 1px solid rgba(147, 197, 253, 0.10);
         box-shadow: 0 28px 68px rgba(15, 23, 42, 0.18);
         z-index: 10;
+        transition: width .22s ease, padding .22s ease;
+    }
+    .app-shell.sidebar-collapsed {
+        padding-left: 92px;
+    }
+    .app-shell.sidebar-collapsed .sidebar {
+        width: 92px;
+        padding: 20px 12px;
+    }
+    .sidebar-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+    .sidebar-toggle {
+        width: 42px;
+        min-width: 42px;
+        height: 42px;
+        padding: 0;
+        border-radius: 14px;
+        border: 1px solid rgba(147, 197, 253, 0.12);
+        background: rgba(255, 255, 255, 0.06);
+        color: #dbeafe;
+        box-shadow: none;
     }
     .brand {
         display: inline-flex;
         align-items: center;
         gap: 12px;
-        margin-bottom: 24px;
         color: white;
         text-decoration: none;
         font-weight: 800;
         font-size: 1.02rem;
         letter-spacing: -.02em;
+        min-width: 0;
     }
     .brand-mark {
         width: 42px;
@@ -87,6 +113,7 @@
     .brand-copy {
         display: grid;
         gap: 2px;
+        transition: opacity .16s ease, transform .16s ease;
     }
     .brand-copy small {
         color: var(--sidebar-muted);
@@ -94,10 +121,21 @@
         letter-spacing: .08em;
         text-transform: uppercase;
     }
+    .app-shell.sidebar-collapsed .brand {
+        justify-content: center;
+        width: 100%;
+    }
+    .app-shell.sidebar-collapsed .brand-copy {
+        opacity: 0;
+        width: 0;
+        overflow: hidden;
+        transform: translateX(-6px);
+    }
     .sidebar-group { margin-bottom: 24px; }
     .sidebar-title {
         margin: 0 0 10px; font-size: .75rem; text-transform: uppercase;
         letter-spacing: .12em; color: var(--sidebar-muted);
+        transition: opacity .16s ease;
     }
     .sidebar-nav { display: grid; gap: 8px; }
     .sidebar-link {
@@ -128,12 +166,36 @@
     .sidebar-link i {
         width: 18px;
         text-align: center;
+        flex: 0 0 18px;
+    }
+    .sidebar-text {
+        transition: opacity .16s ease, transform .16s ease;
+        white-space: nowrap;
     }
     .sidebar-footer { margin-top: auto; }
+    .app-shell.sidebar-collapsed .sidebar-group {
+        margin-bottom: 18px;
+    }
+    .app-shell.sidebar-collapsed .sidebar-title {
+        opacity: 0;
+        height: 0;
+        margin: 0;
+        overflow: hidden;
+    }
+    .app-shell.sidebar-collapsed .sidebar-link {
+        justify-content: center;
+        padding: 12px;
+    }
+    .app-shell.sidebar-collapsed .sidebar-text {
+        opacity: 0;
+        width: 0;
+        overflow: hidden;
+        transform: translateX(-6px);
+    }
     .main {
         min-width: 0;
         width: 100%;
-        padding: 0 0 20px;
+        padding: 20px 20px 20px 24px;
     }
     .navbar {
         display: flex;
@@ -300,8 +362,8 @@
     }
     @media (max-width: 1180px) {
         .dashboard-shell {
-            width: min(100%, calc(100% - 40px));
-            padding: 20px 0 32px;
+            width: 100%;
+            padding: 0;
         }
         .app-shell {
             min-height: 100vh;
@@ -317,10 +379,38 @@
             margin-bottom: 20px;
             border-bottom: 0;
             overflow: visible;
+            border-right: 0;
         }
         .main {
             margin-left: 0;
             width: 100%;
+            padding: 0 20px 20px;
+        }
+        .sidebar-head {
+            margin-bottom: 18px;
+        }
+        .app-shell.sidebar-collapsed {
+            padding-left: 0;
+        }
+        .app-shell.sidebar-collapsed .sidebar {
+            width: auto;
+            padding: 20px 18px;
+        }
+        .app-shell.sidebar-collapsed .brand {
+            justify-content: flex-start;
+        }
+        .app-shell.sidebar-collapsed .brand-copy,
+        .app-shell.sidebar-collapsed .sidebar-title,
+        .app-shell.sidebar-collapsed .sidebar-text {
+            opacity: 1;
+            width: auto;
+            height: auto;
+            overflow: visible;
+            transform: none;
+        }
+        .app-shell.sidebar-collapsed .sidebar-link {
+            justify-content: flex-start;
+            padding: 12px 14px;
         }
     }
     @media (max-width: 1100px) {
@@ -340,44 +430,49 @@
 <div class="dashboard-shell">
     <div class="app-shell">
         <aside class="sidebar">
-            <a class="brand" href="/">
-                <span class="brand-mark"><i class="fa-solid fa-chart-pie"></i></span>
-                <span class="brand-copy">
-                    <span>Studket Ops</span>
-                    <small>Internal Dashboard</small>
-                </span>
-            </a>
+            <div class="sidebar-head">
+                <a class="brand" href="/">
+                    <span class="brand-mark"><i class="fa-solid fa-chart-pie"></i></span>
+                    <span class="brand-copy">
+                        <span>Studket Ops</span>
+                        <small>Internal Dashboard</small>
+                    </span>
+                </a>
+                <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-label="Collapse sidebar" aria-expanded="true">
+                    <i class="fa-solid fa-angles-left"></i>
+                </button>
+            </div>
 
             <div class="sidebar-group">
                 <p class="sidebar-title">Overview</p>
                 <nav class="sidebar-nav">
-                    <a class="sidebar-link {% if active_page == 'overview' %}active{% endif %}" href="/dashboard"><i class="fa-solid fa-gauge-high" style="margin-right:8px;"></i>Dashboard</a>
-                    <a class="sidebar-link {% if active_page == 'verification' %}active{% endif %}" href="/dashboard/verifications"><i class="fa-solid fa-user-check" style="margin-right:8px;"></i>Seller Verification</a>
-                    <a class="sidebar-link {% if active_page == 'moderation' %}active{% endif %}" href="/dashboard/moderation"><i class="fa-solid fa-gavel" style="margin-right:8px;"></i>Listing Moderation</a>
+                    <a class="sidebar-link {% if active_page == 'overview' %}active{% endif %}" href="/dashboard" title="Dashboard"><i class="fa-solid fa-gauge-high"></i><span class="sidebar-text">Dashboard</span></a>
+                    <a class="sidebar-link {% if active_page == 'verification' %}active{% endif %}" href="/dashboard/verifications" title="Seller Verification"><i class="fa-solid fa-user-check"></i><span class="sidebar-text">Seller Verification</span></a>
+                    <a class="sidebar-link {% if active_page == 'moderation' %}active{% endif %}" href="/dashboard/moderation" title="Listing Moderation"><i class="fa-solid fa-gavel"></i><span class="sidebar-text">Listing Moderation</span></a>
                 </nav>
             </div>
 
             <div class="sidebar-group">
                 <p class="sidebar-title">Insights</p>
                 <nav class="sidebar-nav">
-                    <a class="sidebar-link {% if active_page == 'quality' %}active{% endif %}" href="/dashboard/quality"><i class="fa-solid fa-star-half-stroke" style="margin-right:8px;"></i>Seller Quality</a>
-                    <a class="sidebar-link {% if active_page == 'settings' %}active{% endif %}" href="/dashboard/settings"><i class="fa-solid fa-sliders" style="margin-right:8px;"></i>Settings</a>
-                    <a class="sidebar-link {% if active_page == 'audit' %}active{% endif %}" href="/dashboard/audit"><i class="fa-solid fa-clock-rotate-left" style="margin-right:8px;"></i>Audit Logs</a>
+                    <a class="sidebar-link {% if active_page == 'quality' %}active{% endif %}" href="/dashboard/quality" title="Seller Quality"><i class="fa-solid fa-star-half-stroke"></i><span class="sidebar-text">Seller Quality</span></a>
+                    <a class="sidebar-link {% if active_page == 'settings' %}active{% endif %}" href="/dashboard/settings" title="Settings"><i class="fa-solid fa-sliders"></i><span class="sidebar-text">Settings</span></a>
+                    <a class="sidebar-link {% if active_page == 'audit' %}active{% endif %}" href="/dashboard/audit" title="Audit Logs"><i class="fa-solid fa-clock-rotate-left"></i><span class="sidebar-text">Audit Logs</span></a>
                 </nav>
             </div>
 
             <div class="sidebar-group">
                 <p class="sidebar-title">Account</p>
                 <nav class="sidebar-nav">
-                    <a class="sidebar-link {% if active_page == 'account' %}active{% endif %}" href="/dashboard/account"><i class="fa-solid fa-id-card" style="margin-right:8px;"></i>Account Snapshot</a>
+                    <a class="sidebar-link {% if active_page == 'account' %}active{% endif %}" href="/dashboard/account" title="Account Snapshot"><i class="fa-solid fa-id-card"></i><span class="sidebar-text">Account Snapshot</span></a>
                 </nav>
             </div>
 
             <div class="sidebar-footer">
                 <form method="post" action="/logout">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="sidebar-link" style="text-align:left;">
-                        <i class="fa-solid fa-right-from-bracket"></i>Log out
+                    <button type="submit" class="sidebar-link" style="text-align:left;" title="Log out">
+                        <i class="fa-solid fa-right-from-bracket"></i><span class="sidebar-text">Log out</span>
                     </button>
                 </form>
             </div>
@@ -411,4 +506,35 @@
         </main>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    (() => {
+        const appShell = document.querySelector(".app-shell");
+        const toggle = document.querySelector("[data-sidebar-toggle]");
+        if (!appShell || !toggle) return;
+
+        const storageKey = "studket-dashboard-sidebar-collapsed";
+        const icon = toggle.querySelector("i");
+
+        const sync = (collapsed) => {
+            appShell.classList.toggle("sidebar-collapsed", collapsed);
+            toggle.setAttribute("aria-expanded", String(!collapsed));
+            toggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+            if (icon) {
+                icon.className = collapsed ? "fa-solid fa-angles-right" : "fa-solid fa-angles-left";
+            }
+        };
+
+        const stored = window.localStorage.getItem(storageKey);
+        sync(stored === "1");
+
+        toggle.addEventListener("click", () => {
+            const collapsed = !appShell.classList.contains("sidebar-collapsed");
+            sync(collapsed);
+            window.localStorage.setItem(storageKey, collapsed ? "1" : "0");
+        });
+    })();
+</script>
 {% endblock %}
