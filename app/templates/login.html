@@ -44,30 +44,30 @@
 {% block content %}
 <main class="container">
     <div class="topbar">
-        <a href="/">Studket</a>
+        <a href="/"><i class="fa-solid fa-shield-halved" style="margin-right:8px;"></i>Studket</a>
         <div style="display:flex; gap:16px; flex-wrap:wrap;">
-            <a href="/auth/register">Create account</a>
-            <a href="/docs">API Docs</a>
+            <a href="/auth/register"><i class="fa-solid fa-user-plus" style="margin-right:6px;"></i>Create account</a>
+            <a href="/docs"><i class="fa-solid fa-book-open" style="margin-right:6px;"></i>API Docs</a>
         </div>
     </div>
     <section class="layout">
         <article class="card hero">
-            <p style="letter-spacing:.22em; text-transform:uppercase; font-size:12px; color:#7dd3fc; margin:0 0 14px;">Web Console</p>
+            <p style="letter-spacing:.22em; text-transform:uppercase; font-size:12px; color:#7dd3fc; margin:0 0 14px;"><i class="fa-solid fa-desktop" style="margin-right:6px;"></i>Web Console</p>
             <h1 style="font-size:clamp(2.2rem, 5vw, 4rem); line-height:.95; margin:0 0 16px;">Operations login for management and superadmin.</h1>
             <p style="color:#cbd5e1; line-height:1.7;">Use this web sign-in for moderation, review queues, and marketplace oversight. Regular users continue to authenticate only through the app.</p>
             <div class="roles">
                 <div class="role">
-                    <strong>Management</strong>
+                    <strong><i class="fa-solid fa-user-tie" style="margin-right:8px;"></i>Management</strong>
                     <div style="color:#cbd5e1;">See verification requests, moderation queues, user metrics, and seller quality insights.</div>
                 </div>
                 <div class="role">
-                    <strong>Superadmin</strong>
+                    <strong><i class="fa-solid fa-user-shield" style="margin-right:8px;"></i>Superadmin</strong>
                     <div style="color:#cbd5e1;">Everything management can do, plus control over the management session timeout.</div>
                 </div>
             </div>
         </article>
         <section class="card panel">
-            <h2 style="margin:0 0 8px;">Sign in</h2>
+            <h2 style="margin:0 0 8px;"><i class="fa-solid fa-right-to-bracket" style="margin-right:8px;"></i>Sign in</h2>
             <p style="color:#64748b; margin:0 0 18px;">Choose your role and continue to the dashboard.</p>
             {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
             {% if success %}<div class="alert success">{{ success }}</div>{% endif %}
@@ -76,11 +76,11 @@
                 <div class="role-picker">
                     <label class="role-option {% if active_role != 'superadmin' %}active{% endif %}" data-role-card="management">
                         <input type="radio" name="account_type" value="management" {% if active_role != "superadmin" %}checked{% endif %}>
-                        <strong>Management</strong>
+                        <strong><i class="fa-solid fa-briefcase" style="margin-right:6px;"></i>Management</strong>
                     </label>
                     <label class="role-option {% if active_role == 'superadmin' %}active{% endif %}" data-role-card="superadmin">
                         <input type="radio" name="account_type" value="superadmin" {% if active_role == "superadmin" %}checked{% endif %}>
-                        <strong>Superadmin</strong>
+                        <strong><i class="fa-solid fa-crown" style="margin-right:6px;"></i>Superadmin</strong>
                     </label>
                 </div>
                 <div class="field">
@@ -91,7 +91,7 @@
                     <label>Password</label>
                     <input type="password" name="password" autocomplete="current-password" required>
                 </div>
-                <button class="submit" type="submit">Sign in securely</button>
+                <button class="submit" type="submit"><i class="fa-solid fa-lock" style="margin-right:8px;"></i>Sign in securely</button>
             </form>
         </section>
     </section>

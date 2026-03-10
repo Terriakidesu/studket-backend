@@ -45,15 +45,15 @@
 {% block content %}
 <main class="container">
     <div class="topbar">
-        <a href="/">Studket</a>
+        <a href="/"><i class="fa-solid fa-shield-halved" style="margin-right:8px;"></i>Studket</a>
         <div style="display:flex; gap:16px; flex-wrap:wrap;">
-            <a href="/auth/login">Back to login</a>
-            <a href="/docs">API Docs</a>
+            <a href="/auth/login"><i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i>Back to login</a>
+            <a href="/docs"><i class="fa-solid fa-book-open" style="margin-right:6px;"></i>API Docs</a>
         </div>
     </div>
     <section class="layout">
         <article class="card info">
-            <p style="letter-spacing:.22em; text-transform:uppercase; font-size:12px; color:#fde68a; margin:0 0 14px;">Staff Onboarding</p>
+            <p style="letter-spacing:.22em; text-transform:uppercase; font-size:12px; color:#fde68a; margin:0 0 14px;"><i class="fa-solid fa-id-badge" style="margin-right:6px;"></i>Staff Onboarding</p>
             <h1 style="font-size:clamp(2rem, 4vw, 3.6rem); line-height:.96; margin:0 0 16px;">Create a management or superadmin web account.</h1>
             <p style="color:#d1fae5; line-height:1.7;">This form is intentionally limited to web-access roles. User accounts remain outside the browser experience and must use the app.</p>
             <ul style="margin:24px 0 0; padding-left:18px; color:#d1fae5; line-height:1.8;">
@@ -63,7 +63,7 @@
             </ul>
         </article>
         <section class="card panel">
-            <h2 style="margin:0 0 8px;">Register web access</h2>
+            <h2 style="margin:0 0 8px;"><i class="fa-solid fa-user-plus" style="margin-right:8px;"></i>Register web access</h2>
             <p style="color:#64748b; margin:0 0 18px;">Management can moderate the marketplace. Superadmin can also change operational session settings.</p>
             {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
             {% if success %}<div class="alert success">{{ success }}</div>{% endif %}
@@ -72,11 +72,11 @@
                 <div class="role-picker">
                     <label class="role-option {% if active_role != 'superadmin' %}active{% endif %}" data-role-card="management">
                         <input type="radio" name="account_type" value="management" {% if active_role != "superadmin" %}checked{% endif %}>
-                        <strong>Management</strong>
+                        <strong><i class="fa-solid fa-briefcase" style="margin-right:6px;"></i>Management</strong>
                     </label>
                     <label class="role-option {% if active_role == 'superadmin' %}active{% endif %}" data-role-card="superadmin">
                         <input type="radio" name="account_type" value="superadmin" {% if active_role == "superadmin" %}checked{% endif %}>
-                        <strong>Superadmin</strong>
+                        <strong><i class="fa-solid fa-crown" style="margin-right:6px;"></i>Superadmin</strong>
                     </label>
                 </div>
                 <div class="grid">
@@ -120,7 +120,7 @@
                     <div style="color:#b42318; font-size:.95rem; margin-top:-8px;">Set <code>SUPERADMIN_INVITE_CODE</code> in `.env` to enable superadmin registration.</div>
                     {% endif %}
                 </div>
-                <button class="submit" type="submit">Create account</button>
+                <button class="submit" type="submit"><i class="fa-solid fa-circle-plus" style="margin-right:8px;"></i>Create account</button>
             </form>
         </section>
     </section>

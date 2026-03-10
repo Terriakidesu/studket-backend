@@ -1,5 +1,5 @@
 <article class="panel">
-    <h2>Listing Moderation Queue</h2>
+    <h2><i class="fa-solid fa-gavel" style="margin-right:8px;"></i>Listing Moderation Queue</h2>
     <p class="lead">Remove inappropriate listings and looking-for posts from the marketplace.</p>
     <div class="table-wrap">
         <table>
@@ -22,7 +22,7 @@
                     <td>
                         <form method="post" action="/dashboard/listings/{{ listing.listing_id }}/delete">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                            <button type="submit" class="danger">Delete</button>
+                            <button type="submit" class="danger"><i class="fa-solid fa-trash" style="margin-right:6px;"></i>Delete</button>
                         </form>
                     </td>
                 </tr>

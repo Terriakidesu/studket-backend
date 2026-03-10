@@ -203,11 +203,15 @@ def auth_portal(request: Request):
 
 @router.get("/auth/login", response_class=HTMLResponse)
 def login_page(request: Request):
+    if _get_session_account(request):
+        return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
     return _render_auth_page(request, template_name="login.html")
 
 
 @router.get("/auth/register", response_class=HTMLResponse)
 def register_page(request: Request):
+    if _get_session_account(request):
+        return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
     return _render_auth_page(request, template_name="register.html")
 
 

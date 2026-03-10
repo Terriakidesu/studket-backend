@@ -1,5 +1,5 @@
 <article class="panel">
-    <h2>Seller Quality Signal</h2>
+    <h2><i class="fa-solid fa-star-half-stroke" style="margin-right:8px;"></i>Seller Quality Signal</h2>
     <p class="lead">Current lowest-rated seller based on average review score.</p>
     {% if lowest_rated_seller %}
     <div style="font-size:2rem; font-weight:800;">{{ "%.2f"|format(lowest_rated_seller.average_rating) }}</div>

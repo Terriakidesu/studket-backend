@@ -110,36 +110,36 @@
 {% block content %}
 <div class="app-shell">
     <aside class="sidebar">
-        <a class="brand" href="/">Studket Ops</a>
+        <a class="brand" href="/"><i class="fa-solid fa-chart-pie" style="margin-right:8px;"></i>Studket Ops</a>
 
         <div class="sidebar-group">
             <p class="sidebar-title">Overview</p>
             <nav class="sidebar-nav">
-                <a class="sidebar-link {% if active_page == 'overview' %}active{% endif %}" href="/dashboard">Dashboard</a>
-                <a class="sidebar-link {% if active_page == 'verification' %}active{% endif %}" href="/dashboard/verifications">Seller Verification</a>
-                <a class="sidebar-link {% if active_page == 'moderation' %}active{% endif %}" href="/dashboard/moderation">Listing Moderation</a>
+                <a class="sidebar-link {% if active_page == 'overview' %}active{% endif %}" href="/dashboard"><i class="fa-solid fa-gauge-high" style="margin-right:8px;"></i>Dashboard</a>
+                <a class="sidebar-link {% if active_page == 'verification' %}active{% endif %}" href="/dashboard/verifications"><i class="fa-solid fa-user-check" style="margin-right:8px;"></i>Seller Verification</a>
+                <a class="sidebar-link {% if active_page == 'moderation' %}active{% endif %}" href="/dashboard/moderation"><i class="fa-solid fa-gavel" style="margin-right:8px;"></i>Listing Moderation</a>
             </nav>
         </div>
 
         <div class="sidebar-group">
             <p class="sidebar-title">Insights</p>
             <nav class="sidebar-nav">
-                <a class="sidebar-link {% if active_page == 'quality' %}active{% endif %}" href="/dashboard/quality">Seller Quality</a>
-                <a class="sidebar-link {% if active_page == 'settings' %}active{% endif %}" href="/dashboard/settings">Settings</a>
-                <a class="sidebar-link {% if active_page == 'audit' %}active{% endif %}" href="/dashboard/audit">Audit Logs</a>
+                <a class="sidebar-link {% if active_page == 'quality' %}active{% endif %}" href="/dashboard/quality"><i class="fa-solid fa-star-half-stroke" style="margin-right:8px;"></i>Seller Quality</a>
+                <a class="sidebar-link {% if active_page == 'settings' %}active{% endif %}" href="/dashboard/settings"><i class="fa-solid fa-sliders" style="margin-right:8px;"></i>Settings</a>
+                <a class="sidebar-link {% if active_page == 'audit' %}active{% endif %}" href="/dashboard/audit"><i class="fa-solid fa-clock-rotate-left" style="margin-right:8px;"></i>Audit Logs</a>
             </nav>
         </div>
 
         <div class="sidebar-group">
             <p class="sidebar-title">Account</p>
             <nav class="sidebar-nav">
-                <a class="sidebar-link {% if active_page == 'account' %}active{% endif %}" href="/dashboard/account">Account Snapshot</a>
-                <a class="sidebar-link" href="/auth/login">Back to Login</a>
+                <a class="sidebar-link {% if active_page == 'account' %}active{% endif %}" href="/dashboard/account"><i class="fa-solid fa-id-card" style="margin-right:8px;"></i>Account Snapshot</a>
+                <a class="sidebar-link" href="/auth/login"><i class="fa-solid fa-arrow-left" style="margin-right:8px;"></i>Back to Login</a>
             </nav>
         </div>
 
         <div class="sidebar-meta">
-            Signed in as <strong style="color:white;">{{ account.username }}</strong><br>
+            <i class="fa-solid fa-user-shield" style="margin-right:6px; color:white;"></i>Signed in as <strong style="color:white;">{{ account.username }}</strong><br>
             Role: {{ account.account_type }}<br>
             {% if is_superadmin %}
             Superadmin controls are enabled.
@@ -152,14 +152,14 @@
     <main class="main">
         <section class="navbar">
             <div>
-                <h1>{{ page_title }}</h1>
+                <h1><i class="fa-solid fa-layer-group" style="margin-right:10px;"></i>{{ page_title }}</h1>
                 <p>{{ page_description }}</p>
             </div>
             <div class="actions">
-                <a class="button" href="/auth/login">Return to login</a>
+                <a class="button" href="/auth/login"><i class="fa-solid fa-arrow-left" style="margin-right:8px;"></i>Return to login</a>
                 <form method="post" action="/logout">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="primary">Log out</button>
+                    <button type="submit" class="primary"><i class="fa-solid fa-right-from-bracket" style="margin-right:8px;"></i>Log out</button>
                 </form>
             </div>
         </section>

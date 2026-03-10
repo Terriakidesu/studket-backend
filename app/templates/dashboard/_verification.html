@@ -1,5 +1,5 @@
 <article class="panel">
-    <h2>Seller Verification Requests</h2>
+    <h2><i class="fa-solid fa-user-check" style="margin-right:8px;"></i>Seller Verification Requests</h2>
     <p class="lead">Review pending seller verification submissions and approve or reject them directly.</p>
     <div class="table-wrap">
         <table>
@@ -28,12 +28,12 @@
                         <form method="post" action="/dashboard/verifications/{{ request_row.request_id }}/approve">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                             <textarea name="review_note" placeholder="Optional approval note"></textarea>
-                            <div class="row-actions"><button type="submit" class="success-btn">Approve</button></div>
+                            <div class="row-actions"><button type="submit" class="success-btn"><i class="fa-solid fa-check" style="margin-right:6px;"></i>Approve</button></div>
                         </form>
                         <form method="post" action="/dashboard/verifications/{{ request_row.request_id }}/reject" style="margin-top:8px;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                             <textarea name="review_note" placeholder="Optional rejection note"></textarea>
-                            <div class="row-actions"><button type="submit" class="danger">Reject</button></div>
+                            <div class="row-actions"><button type="submit" class="danger"><i class="fa-solid fa-xmark" style="margin-right:6px;"></i>Reject</button></div>
                         </form>
                     </td>
                 </tr>
