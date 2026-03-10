@@ -1,0 +1,18 @@
+{% extends "dashboard/base.html" %}
+
+{% block dashboard_content %}
+{% include "dashboard/_overview_metrics.html" %}
+
+<section class="grid content-grid">
+    <div class="stack">
+        {% include "dashboard/_verification.html" %}
+        {% include "dashboard/_moderation.html" %}
+    </div>
+    <div class="stack">
+        {% include "dashboard/_quality.html" %}
+        {% include "dashboard/_session_policy.html" %}
+        {% include "dashboard/_account.html" %}
+        {% include "dashboard/_audit.html" %}
+    </div>
+</section>
+{% endblock %}

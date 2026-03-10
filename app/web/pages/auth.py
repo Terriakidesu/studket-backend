@@ -98,6 +98,104 @@ def _render_auth_page(
     )
 
 
+def _build_dashboard_context(request: Request, db: Session) -> dict:
+    account = _require_web_session(request)
+    csrf_token = _ensure_csrf_token(request)
+    total_users = (
+        db.query(func.count(Account.account_id))
+        .filter(Account.account_type == "user")
+        .scalar()
+        or 0
+    )
+    sellers_count = (
+        db.query(func.count(func.distinct(Listing.seller_id)))
+        .filter(Listing.seller_id.isnot(None))
+        .scalar()
+        or 0
+    )
+    buyers_count = (
+        db.query(func.count(func.distinct(Transaction.buyer_id)))
+        .filter(Transaction.buyer_id.isnot(None))
+        .scalar()
+        or 0
+    )
+    listings_count = db.query(func.count(Listing.listing_id)).scalar() or 0
+
+    verification_requests = (
+        db.query(
+            SellerVerificationRequest.request_id,
+            SellerVerificationRequest.status,
+            SellerVerificationRequest.submission_note,
+            SellerVerificationRequest.created_at,
+            SellerVerificationRequest.review_note,
+            Account.username,
+            Account.email,
+        )
+        .join(Account, Account.account_id == SellerVerificationRequest.user_id)
+        .order_by(
+            SellerVerificationRequest.status.asc(),
+            SellerVerificationRequest.created_at.desc(),
+        )
+        .all()
+    )
+
+    listings = (
+        db.query(
+            Listing.listing_id,
+            Listing.title,
+            Listing.listing_type,
+            Listing.status,
+            Listing.price,
+            Listing.created_at,
+            Account.username.label("seller_username"),
+        )
+        .outerjoin(Account, Account.account_id == Listing.seller_id)
+        .order_by(Listing.created_at.desc())
+        .limit(12)
+        .all()
+    )
+
+    lowest_rated_seller = (
+        db.query(
+            Review.reviewee_id,
+            Account.username,
+            func.avg(Review.rating).label("average_rating"),
+            func.count(Review.review_id).label("review_count"),
+        )
+        .join(Account, Account.account_id == Review.reviewee_id)
+        .group_by(Review.reviewee_id, Account.username)
+        .order_by(func.avg(Review.rating).asc(), func.count(Review.review_id).desc())
+        .first()
+    )
+
+    timeout_minutes = get_management_session_timeout_minutes(db)
+    recent_audit_logs = (
+        db.query(AuditLog)
+        .order_by(AuditLog.created_at.desc())
+        .limit(20)
+        .all()
+    )
+
+    return {
+        "request": request,
+        "title": "Dashboard",
+        "account": account,
+        "csrf_token": csrf_token,
+        "metrics": {
+            "total_users": total_users,
+            "buyers_count": buyers_count,
+            "sellers_count": sellers_count,
+            "listings_count": listings_count,
+        },
+        "verification_requests": verification_requests,
+        "listings": listings,
+        "lowest_rated_seller": lowest_rated_seller,
+        "management_timeout_minutes": timeout_minutes,
+        "is_superadmin": account.get("account_type") == "superadmin",
+        "recent_audit_logs": recent_audit_logs,
+    }
+
+
 @router.get("/auth", response_class=HTMLResponse)
 def auth_portal(request: Request):
     return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
@@ -306,107 +404,114 @@ def register_submit(
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db)):
     try:
-        account = _require_web_session(request)
+        context = _build_dashboard_context(request, db)
     except AuthServiceError:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
 
-    csrf_token = _ensure_csrf_token(request)
-    total_users = (
-        db.query(func.count(Account.account_id))
-        .filter(Account.account_type == "user")
-        .scalar()
-        or 0
-    )
-    sellers_count = (
-        db.query(func.count(func.distinct(Listing.seller_id)))
-        .filter(Listing.seller_id.isnot(None))
-        .scalar()
-        or 0
-    )
-    buyers_count = (
-        db.query(func.count(func.distinct(Transaction.buyer_id)))
-        .filter(Transaction.buyer_id.isnot(None))
-        .scalar()
-        or 0
-    )
-    listings_count = db.query(func.count(Listing.listing_id)).scalar() or 0
-
-    verification_requests = (
-        db.query(
-            SellerVerificationRequest.request_id,
-            SellerVerificationRequest.status,
-            SellerVerificationRequest.submission_note,
-            SellerVerificationRequest.created_at,
-            SellerVerificationRequest.review_note,
-            Account.username,
-            Account.email,
-        )
-        .join(Account, Account.account_id == SellerVerificationRequest.user_id)
-        .order_by(
-            SellerVerificationRequest.status.asc(),
-            SellerVerificationRequest.created_at.desc(),
-        )
-        .all()
-    )
-
-    listings = (
-        db.query(
-            Listing.listing_id,
-            Listing.title,
-            Listing.listing_type,
-            Listing.status,
-            Listing.price,
-            Listing.created_at,
-            Account.username.label("seller_username"),
-        )
-        .outerjoin(Account, Account.account_id == Listing.seller_id)
-        .order_by(Listing.created_at.desc())
-        .limit(12)
-        .all()
-    )
-
-    lowest_rated_seller = (
-        db.query(
-            Review.reviewee_id,
-            Account.username,
-            func.avg(Review.rating).label("average_rating"),
-            func.count(Review.review_id).label("review_count"),
-        )
-        .join(Account, Account.account_id == Review.reviewee_id)
-        .group_by(Review.reviewee_id, Account.username)
-        .order_by(func.avg(Review.rating).asc(), func.count(Review.review_id).desc())
-        .first()
-    )
-
-    timeout_minutes = get_management_session_timeout_minutes(db)
-    recent_audit_logs = (
-        db.query(AuditLog)
-        .order_by(AuditLog.created_at.desc())
-        .limit(20)
-        .all()
-    )
-
-    return templates.TemplateResponse(
-        "dashboard.html",
+    context.update(
         {
-            "request": request,
-            "title": "Dashboard",
-            "account": account,
-            "csrf_token": csrf_token,
-            "metrics": {
-                "total_users": total_users,
-                "buyers_count": buyers_count,
-                "sellers_count": sellers_count,
-                "listings_count": listings_count,
-            },
-            "verification_requests": verification_requests,
-            "listings": listings,
-            "lowest_rated_seller": lowest_rated_seller,
-            "management_timeout_minutes": timeout_minutes,
-            "is_superadmin": account.get("account_type") == "superadmin",
-            "recent_audit_logs": recent_audit_logs,
-        },
+            "active_page": "overview",
+            "page_title": "Marketplace Operations Dashboard",
+            "page_description": "Moderation, verification, user metrics, and audit visibility in one place.",
+        }
     )
+    return templates.TemplateResponse("dashboard/overview.html", context)
+
+
+@router.get("/dashboard/verifications", response_class=HTMLResponse)
+def dashboard_verifications(request: Request, db: Session = Depends(get_db)):
+    try:
+        context = _build_dashboard_context(request, db)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    context.update(
+        {
+            "active_page": "verification",
+            "page_title": "Seller Verification",
+            "page_description": "Review, approve, and reject seller verification requests.",
+        }
+    )
+    return templates.TemplateResponse("dashboard/verifications.html", context)
+
+
+@router.get("/dashboard/moderation", response_class=HTMLResponse)
+def dashboard_moderation(request: Request, db: Session = Depends(get_db)):
+    try:
+        context = _build_dashboard_context(request, db)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    context.update(
+        {
+            "active_page": "moderation",
+            "page_title": "Listing Moderation",
+            "page_description": "Review marketplace posts and remove inappropriate listings or looking-for posts.",
+        }
+    )
+    return templates.TemplateResponse("dashboard/moderation.html", context)
+
+
+@router.get("/dashboard/quality", response_class=HTMLResponse)
+def dashboard_quality(request: Request, db: Session = Depends(get_db)):
+    try:
+        context = _build_dashboard_context(request, db)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    context.update(
+        {
+            "active_page": "quality",
+            "page_title": "Seller Quality",
+            "page_description": "See the current lowest-rated seller and monitor quality signals.",
+        }
+    )
+    return templates.TemplateResponse("dashboard/quality.html", context)
+
+
+@router.get("/dashboard/settings", response_class=HTMLResponse)
+def dashboard_settings(request: Request, db: Session = Depends(get_db)):
+    try:
+        context = _build_dashboard_context(request, db)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    context.update(
+        {
+            "active_page": "settings",
+            "page_title": "Settings",
+            "page_description": "Manage operational settings, including the management session timeout.",
+        }
+    )
+    return templates.TemplateResponse("dashboard/settings.html", context)
+
+
+@router.get("/dashboard/account", response_class=HTMLResponse)
+def dashboard_account(request: Request, db: Session = Depends(get_db)):
+    try:
+        context = _build_dashboard_context(request, db)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    context.update(
+        {
+            "active_page": "account",
+            "page_title": "Account Snapshot",
+            "page_description": "Review the current signed-in web account details.",
+        }
+    )
+    return templates.TemplateResponse("dashboard/account.html", context)
+
+
+@router.get("/dashboard/audit", response_class=HTMLResponse)
+def dashboard_audit(request: Request, db: Session = Depends(get_db)):
+    try:
+        context = _build_dashboard_context(request, db)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    context.update(
+        {
+            "active_page": "audit",
+            "page_title": "Audit Logs",
+            "page_description": "Track important management and superadmin activity across the web console.",
+        }
+    )
+    return templates.TemplateResponse("dashboard/audit.html", context)
 
 
 @router.post("/dashboard/verifications/{request_id}/approve")
