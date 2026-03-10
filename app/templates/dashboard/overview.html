@@ -2,4 +2,238 @@
 
 {% block dashboard_content %}
 {% include "dashboard/_overview_metrics.html" %}
+
+<section class="grid content-grid">
+    <div class="stack">
+        <article class="panel">
+            <h2><i class="fa-solid fa-chart-column" style="margin-right:8px;"></i>Marketplace Mix</h2>
+            <p class="lead">A quick visual breakdown of users, buyers, sellers, and active listings.</p>
+            <canvas id="marketplaceMixChart" height="140"></canvas>
+        </article>
+
+        <article class="panel">
+            <h2><i class="fa-solid fa-user-check" style="margin-right:8px;"></i>Verification Snapshot</h2>
+            <p class="lead">A brief view of the most recent seller verification requests.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Seller</th>
+                            <th>Status</th>
+                            <th>Submitted</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for request_row in verification_requests[:5] %}
+                        <tr>
+                            <td>
+                                <strong>{{ request_row.username }}</strong><br>
+                                <span class="muted">{{ request_row.email }}</span>
+                            </td>
+                            <td><span class="badge {{ request_row.status }}">{{ request_row.status }}</span></td>
+                            <td>{{ request_row.created_at or "-" }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="muted">No verification requests yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="row-actions">
+                <a class="button" href="/dashboard/verifications"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Verification Page</a>
+            </div>
+        </article>
+
+        <article class="panel">
+            <h2><i class="fa-solid fa-gavel" style="margin-right:8px;"></i>Moderation Snapshot</h2>
+            <p class="lead">Latest listings and looking-for posts visible to management.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Listing</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for listing in listings[:5] %}
+                        <tr>
+                            <td>
+                                <strong>{{ listing.title }}</strong><br>
+                                <span class="muted">{{ listing.seller_username or "unknown seller" }}</span>
+                            </td>
+                            <td>{{ listing.listing_type or "unknown" }}</td>
+                            <td>{{ listing.status or "unknown" }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="muted">No listings available.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="row-actions">
+                <a class="button" href="/dashboard/moderation"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Moderation Page</a>
+            </div>
+        </article>
+
+        <article class="panel">
+            <h2><i class="fa-solid fa-clock-rotate-left" style="margin-right:8px;"></i>Recent Activity</h2>
+            <p class="lead">Latest high-signal actions from management and superadmin.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Actor</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in recent_audit_logs[:6] %}
+                        <tr>
+                            <td>{{ log.created_at or "-" }}</td>
+                            <td>
+                                <strong>{{ log.actor_username or "system" }}</strong><br>
+                                <span class="muted">{{ log.actor_role or "-" }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ log.action }}</strong>
+                                {% if log.target_label %}
+                                <div class="muted">{{ log.target_label }}</div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="muted">No audit activity recorded yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="row-actions">
+                <a class="button" href="/dashboard/audit"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Audit Page</a>
+            </div>
+        </article>
+    </div>
+
+    <div class="stack">
+        <article class="panel">
+            <h2><i class="fa-solid fa-chart-pie" style="margin-right:8px;"></i>Verification Status</h2>
+            <p class="lead">Current distribution of pending, approved, and rejected verification requests.</p>
+            <canvas id="verificationStatusChart" height="220"></canvas>
+        </article>
+
+        <article class="panel">
+            <h2><i class="fa-solid fa-star-half-stroke" style="margin-right:8px;"></i>Seller Quality Brief</h2>
+            <p class="lead">A quick look at the weakest seller rating signal.</p>
+            {% if lowest_rated_seller %}
+            <div style="font-size:2rem; font-weight:800;">{{ "%.2f"|format(lowest_rated_seller.average_rating) }}</div>
+            <div style="margin-top:8px;">
+                <strong>{{ lowest_rated_seller.username }}</strong><br>
+                <span class="muted">{{ lowest_rated_seller.review_count }} reviews logged</span>
+            </div>
+            {% else %}
+            <div class="muted">No seller review data yet.</div>
+            {% endif %}
+            <div class="row-actions">
+                <a class="button" href="/dashboard/quality"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Quality Page</a>
+            </div>
+        </article>
+
+        <article class="panel">
+            <h2><i class="fa-solid fa-sliders" style="margin-right:8px;"></i>Settings Brief</h2>
+            <p class="lead">Current management session timeout and who can change it.</p>
+            <div>
+                <strong>{{ management_timeout_minutes }} minutes</strong><br>
+                <span class="muted">
+                    {% if is_superadmin %}
+                    You can update this from the settings page.
+                    {% else %}
+                    Only superadmin can update this value.
+                    {% endif %}
+                </span>
+            </div>
+            <div class="row-actions" style="margin-top:16px;">
+                <a class="button" href="/dashboard/settings"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Settings</a>
+            </div>
+        </article>
+
+        <article class="panel">
+            <h2><i class="fa-solid fa-id-card" style="margin-right:8px;"></i>Account Brief</h2>
+            <p class="lead">Summary of the currently signed-in dashboard account.</p>
+            <div class="grid">
+                <div><strong>Username</strong><br><span class="muted">{{ account.username }}</span></div>
+                <div><strong>Email</strong><br><span class="muted">{{ account.email }}</span></div>
+                <div><strong>Role</strong><br><span class="muted">{{ account.account_type }}</span></div>
+            </div>
+            <div class="row-actions" style="margin-top:16px;">
+                <a class="button" href="/dashboard/account"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Account Page</a>
+            </div>
+        </article>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+    const chartData = {{ chart_data | tojson }};
+
+    const marketplaceMixCtx = document.getElementById("marketplaceMixChart");
+    if (marketplaceMixCtx) {
+        new Chart(marketplaceMixCtx, {
+            type: "bar",
+            data: {
+                labels: ["Users", "Buyers", "Sellers", "Listings"],
+                datasets: [{
+                    label: "Count",
+                    data: [
+                        chartData.marketplace_mix.users,
+                        chartData.marketplace_mix.buyers,
+                        chartData.marketplace_mix.sellers,
+                        chartData.marketplace_mix.listings,
+                    ],
+                    backgroundColor: ["#2563eb", "#0f766e", "#f59e0b", "#7c3aed"],
+                    borderRadius: 10,
+                }],
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                },
+            },
+        });
+    }
+
+    const verificationStatusCtx = document.getElementById("verificationStatusChart");
+    if (verificationStatusCtx) {
+        new Chart(verificationStatusCtx, {
+            type: "doughnut",
+            data: {
+                labels: ["Pending", "Approved", "Rejected"],
+                datasets: [{
+                    data: [
+                        chartData.verification_status.pending,
+                        chartData.verification_status.approved,
+                        chartData.verification_status.rejected,
+                    ],
+                    backgroundColor: ["#f59e0b", "#16a34a", "#dc2626"],
+                    borderWidth: 0,
+                }],
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: "bottom",
+                    },
+                },
+                cutout: "68%",
+            },
+        });
+    }
+</script>
 {% endblock %}

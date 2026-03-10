@@ -175,6 +175,21 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         .limit(20)
         .all()
     )
+    verification_chart = {
+        "pending": sum(1 for row in verification_requests if row.status == "pending"),
+        "approved": sum(1 for row in verification_requests if row.status == "approved"),
+        "rejected": sum(1 for row in verification_requests if row.status == "rejected"),
+    }
+    listing_type_chart = {
+        "single_item": sum(1 for row in listings if row.listing_type == "single_item"),
+        "stock_item": sum(1 for row in listings if row.listing_type == "stock_item"),
+        "looking_for": sum(1 for row in listings if row.listing_type == "looking_for"),
+        "other": sum(
+            1
+            for row in listings
+            if row.listing_type not in {"single_item", "stock_item", "looking_for"}
+        ),
+    }
 
     return {
         "request": request,
@@ -193,6 +208,16 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         "management_timeout_minutes": timeout_minutes,
         "is_superadmin": account.get("account_type") == "superadmin",
         "recent_audit_logs": recent_audit_logs,
+        "chart_data": {
+            "marketplace_mix": {
+                "users": total_users,
+                "buyers": buyers_count,
+                "sellers": sellers_count,
+                "listings": listings_count,
+            },
+            "verification_status": verification_chart,
+            "listing_types": listing_type_chart,
+        },
     }
 
 
