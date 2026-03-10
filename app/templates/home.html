@@ -3,94 +3,276 @@
 {% block title %}Studket Access{% endblock %}
 
 {% block head %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <style>
     :root {
-        --paper: rgba(255, 250, 242, 0.88);
-        --ink: #1e2430;
-        --muted: #58606d;
-        --line: rgba(30, 36, 48, 0.14);
+        --ink: #102033;
+        --muted: #5e6c80;
+        --line: rgba(16, 32, 51, 0.12);
+        --panel: rgba(255, 255, 255, 0.72);
+        --panel-strong: rgba(255, 255, 255, 0.88);
         --accent: #0f766e;
-        --accent-strong: #115e59;
-        --warn: #9f1239;
+        --accent-deep: #0b5d57;
+        --signal: #f59e0b;
     }
-    * { box-sizing: border-box; }
+
     body {
-        margin: 0;
         min-height: 100vh;
-        font-family: Georgia, "Times New Roman", serif;
+        margin: 0;
         color: var(--ink);
+        font-family: "Manrope", "Segoe UI", sans-serif;
         background:
-            radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 28rem),
-            linear-gradient(135deg, #f7f2e8, #efe6d2 45%, #e8f5f2 100%);
+            radial-gradient(circle at top left, rgba(15, 118, 110, 0.18), transparent 24rem),
+            radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.14), transparent 22rem),
+            linear-gradient(135deg, #f6f3ee, #ecf7f4 48%, #eef3ff 100%);
     }
-    .shell { max-width: 1100px; margin: 0 auto; padding: 48px 24px 80px; }
-    .hero { display: grid; gap: 28px; grid-template-columns: 1.2fr .8fr; }
-    .panel {
-        background: var(--paper);
+
+    .shell {
+        width: min(1220px, calc(100% - 2rem));
+        margin: 0 auto;
+        padding: 1rem 0 4rem;
+    }
+
+    .topbar {
+        backdrop-filter: blur(16px);
+        background: rgba(255, 255, 255, 0.58);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 1.5rem;
+        box-shadow: 0 1rem 2.5rem rgba(16, 32, 51, 0.06);
+    }
+
+    .brand-mark {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 1rem;
+        display: inline-grid;
+        place-items: center;
+        background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+        color: white;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+    }
+
+    .brand-mark i,
+    .feature-icon i {
+        font-size: 1rem;
+    }
+
+    .hero-card,
+    .feature-card,
+    .metric-card,
+    .cta-card {
         border: 1px solid var(--line);
-        border-radius: 28px;
-        padding: 28px;
-        box-shadow: 0 24px 60px rgba(30, 36, 48, 0.08);
+        background: var(--panel);
+        backdrop-filter: blur(18px);
+        box-shadow: 0 1.5rem 3rem rgba(16, 32, 51, 0.08);
     }
+
+    .hero-card {
+        border-radius: 2rem;
+        overflow: hidden;
+    }
+
+    .hero-panel {
+        padding: 3rem;
+    }
+
     .eyebrow {
         letter-spacing: 0.22em;
         text-transform: uppercase;
-        font-size: 12px;
-        color: var(--accent-strong);
-        margin: 0 0 16px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        color: var(--accent-deep);
     }
-    h1 { font-size: clamp(2.6rem, 5vw, 5rem); line-height: 0.95; margin: 0 0 18px; }
-    p { color: var(--muted); font-size: 1.05rem; line-height: 1.6; margin: 0; }
-    .cta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
-    .cta {
-        display: inline-flex; align-items: center; justify-content: center; min-height: 48px;
-        padding: 0 18px; border-radius: 999px; text-decoration: none; font-weight: 700;
-        border: 1px solid var(--line);
+
+    .display-title {
+        font-size: clamp(2.8rem, 6vw, 5.6rem);
+        line-height: 0.92;
+        letter-spacing: -0.06em;
     }
-    .cta.primary { background: var(--accent); color: white; border-color: var(--accent); }
-    .cta.secondary { color: var(--ink); background: transparent; }
-    .grid { display: grid; gap: 16px; }
-    .role {
-        padding: 18px; border-radius: 20px; border: 1px solid var(--line);
-        background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.52));
+
+    .hero-copy {
+        font-size: 1.08rem;
+        color: var(--muted);
+        max-width: 42rem;
     }
-    .role strong { display: block; margin-bottom: 6px; font-size: 1rem; }
-    .role span { color: var(--muted); line-height: 1.5; font-size: 0.95rem; }
-    .note { margin-top: 18px; color: var(--warn); font-size: 0.92rem; }
-    @media (max-width: 860px) { .hero { grid-template-columns: 1fr; } }
+
+    .soft-panel {
+        border-left: 1px solid var(--line);
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.84)),
+            linear-gradient(160deg, rgba(15,118,110,0.12), rgba(245,158,11,0.08));
+    }
+
+    .feature-card,
+    .metric-card,
+    .cta-card {
+        border-radius: 1.5rem;
+    }
+
+    .metric-number {
+        font-size: 2rem;
+        font-weight: 800;
+        letter-spacing: -0.05em;
+    }
+
+    .section-title {
+        font-size: clamp(1.8rem, 3vw, 2.6rem);
+        letter-spacing: -0.05em;
+    }
+
+    .feature-icon {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 1rem;
+        display: inline-grid;
+        place-items: center;
+        background: rgba(15, 118, 110, 0.12);
+        color: var(--accent-deep);
+        font-weight: 800;
+    }
+
+    .muted-copy {
+        color: var(--muted);
+    }
+
+    .cta-card {
+        background: linear-gradient(135deg, rgba(16,32,51,0.95), rgba(15,118,110,0.92));
+        color: white;
+    }
+
+    .cta-card .muted-copy {
+        color: rgba(255,255,255,0.75);
+    }
+
+    @media (max-width: 991.98px) {
+        .hero-panel {
+            padding: 2rem;
+        }
+
+        .soft-panel {
+            border-left: 0;
+            border-top: 1px solid var(--line);
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <main class="shell">
-    <section class="hero">
-        <article class="panel">
-            <p class="eyebrow">Studket Access</p>
-            <h1>Management tools for a real marketplace operation.</h1>
-            <p>Management and superadmin accounts use the web console for moderation, seller verification, and operational oversight. User sign-in remains app-only.</p>
-            <div class="cta-row">
-                <a class="cta primary" href="/auth/login">Open Login</a>
-                <a class="cta secondary" href="/auth/register">Open Register</a>
-                <a class="cta secondary" href="/docs">API Docs</a>
+    <nav class="navbar navbar-expand-lg topbar px-3 px-lg-4 py-3 my-3">
+        <div class="container-fluid px-0">
+            <a class="navbar-brand d-flex align-items-center gap-3 m-0" href="/">
+                <span class="brand-mark"><i class="fa-solid fa-shield-halved"></i></span>
+                <span class="fw-bold fs-5 text-dark">Studket Ops</span>
+            </a>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <a class="btn btn-outline-dark rounded-pill px-4" href="/docs">API Docs</a>
+                <a class="btn btn-dark rounded-pill px-4" href="/auth/login">Open Console</a>
             </div>
-        </article>
-        <aside class="panel">
-            <div class="grid">
-                <div class="role">
-                    <strong>Seller Verification Queue</strong>
-                    <span>Review pending verification requests and approve or reject sellers directly from the dashboard.</span>
-                </div>
-                <div class="role">
-                    <strong>Listing Moderation</strong>
-                    <span>Remove inappropriate listings and "looking for" posts from a single operations view.</span>
-                </div>
-                <div class="role">
-                    <strong>Session Control</strong>
-                    <span>Superadmin can adjust the management session timeout without code changes.</span>
+        </div>
+    </nav>
+
+    <section class="hero-card mt-4">
+        <div class="row g-0">
+            <div class="col-lg-8">
+                <div class="hero-panel">
+                    <div class="eyebrow mb-3">Marketplace Operations</div>
+                    <h1 class="display-title fw-bold mb-4">Run verification, moderation, and oversight from one modern control room.</h1>
+                    <p class="hero-copy mb-4">Studket’s web console is reserved for management and superadmin access. Review seller verification requests, enforce listing quality, monitor account health, and keep an auditable paper trail across sensitive actions.</p>
+                    <div class="d-flex flex-wrap gap-3">
+                        <a class="btn btn-dark btn-lg rounded-pill px-4" href="/auth/login">Management Login</a>
+                        <a class="btn btn-outline-secondary btn-lg rounded-pill px-4" href="/auth/register">Register Staff Access</a>
+                    </div>
                 </div>
             </div>
-            <p class="note">Set <code>SECRET_KEY</code> and <code>SUPERADMIN_INVITE_CODE</code> in `.env` before using the web console in production.</p>
-        </aside>
+            <div class="col-lg-4 soft-panel">
+                <div class="hero-panel h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="text-uppercase small fw-bold text-secondary mb-3">Access Model</div>
+                        <p class="muted-copy mb-0">Regular users sign in through the app. The browser experience is intentionally restricted to management and superadmin workflows.</p>
+                    </div>
+                    <div class="row g-3 mt-3">
+                        <div class="col-12">
+                            <div class="metric-card p-3 p-xl-4">
+                                <div class="text-uppercase small fw-bold text-secondary mb-2">Role Control</div>
+                                <div class="metric-number">2</div>
+                                <div class="muted-copy">Web-enabled staff roles: management and superadmin.</div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="metric-card p-3 p-xl-4">
+                                <div class="text-uppercase small fw-bold text-secondary mb-2">Auditability</div>
+                                <div class="metric-number">24/7</div>
+                                <div class="muted-copy">Important actions are recorded for review and accountability.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-5">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-3 mb-4">
+            <div>
+                <div class="eyebrow mb-2">Core Modules</div>
+                <h2 class="section-title fw-bold mb-2">Everything the operations team needs, without the clutter.</h2>
+                <p class="muted-copy mb-0">The management console is built around practical workflows instead of generic admin chrome.</p>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-6 col-xl-3">
+                <article class="feature-card h-100 p-4">
+                    <div class="feature-icon mb-3"><i class="fa-solid fa-user-check"></i></div>
+                    <h3 class="h5 fw-bold">Seller Verification</h3>
+                    <p class="muted-copy mb-0">Approve or reject seller verification requests with review notes and a visible audit trail.</p>
+                </article>
+            </div>
+            <div class="col-md-6 col-xl-3">
+                <article class="feature-card h-100 p-4">
+                    <div class="feature-icon mb-3"><i class="fa-solid fa-gavel"></i></div>
+                    <h3 class="h5 fw-bold">Marketplace Moderation</h3>
+                    <p class="muted-copy mb-0">Remove inappropriate listings or looking-for posts before they damage trust in the platform.</p>
+                </article>
+            </div>
+            <div class="col-md-6 col-xl-3">
+                <article class="feature-card h-100 p-4">
+                    <div class="feature-icon mb-3"><i class="fa-solid fa-chart-line"></i></div>
+                    <h3 class="h5 fw-bold">Operational Insights</h3>
+                    <p class="muted-copy mb-0">Track buyer and seller counts, surface weak seller performance, and spot risk earlier.</p>
+                </article>
+            </div>
+            <div class="col-md-6 col-xl-3">
+                <article class="feature-card h-100 p-4">
+                    <div class="feature-icon mb-3"><i class="fa-solid fa-sliders"></i></div>
+                    <h3 class="h5 fw-bold">Security Controls</h3>
+                    <p class="muted-copy mb-0">Superadmin can adjust management session timeout while preserving app-only access for users.</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section class="pb-4">
+        <div class="cta-card p-4 p-lg-5">
+            <div class="row align-items-center g-4">
+                <div class="col-lg-8">
+                    <div class="eyebrow text-warning mb-3">Deployment Note</div>
+                    <h2 class="section-title fw-bold mb-3">Set production secrets before handing this to staff.</h2>
+                    <p class="muted-copy mb-0">Configure <code>SECRET_KEY</code> and <code>SUPERADMIN_INVITE_CODE</code> in your environment so session handling and elevated registration remain controlled.</p>
+                </div>
+                <div class="col-lg-4">
+                    <div class="d-grid gap-3">
+                        <a class="btn btn-light btn-lg rounded-pill" href="/auth/login">Go to Login</a>
+                        <a class="btn btn-outline-light btn-lg rounded-pill" href="/auth/register">Create Staff Account</a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </section>
 </main>
 {% endblock %}
