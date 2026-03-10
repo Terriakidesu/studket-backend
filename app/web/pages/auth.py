@@ -203,6 +203,7 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
             "listings_count": listings_count,
         },
         "verification_requests": verification_requests,
+        "pending_verification_count": verification_chart["pending"],
         "listings": listings,
         "lowest_rated_seller": lowest_rated_seller,
         "management_timeout_minutes": timeout_minutes,

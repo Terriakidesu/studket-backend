@@ -203,6 +203,21 @@
         overflow: hidden;
         text-overflow: ellipsis;
     }
+    .sidebar-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
+        height: 20px;
+        padding: 0 6px;
+        border-radius: 999px;
+        background: rgba(248, 113, 113, 0.16);
+        color: #fecaca;
+        font-size: .72rem;
+        font-weight: 800;
+        line-height: 1;
+        flex: 0 0 auto;
+    }
     .sidebar-footer { margin-top: auto; }
     .app-shell.sidebar-collapsed .sidebar-group {
         margin-bottom: 18px;
@@ -226,6 +241,15 @@
         width: 0;
         overflow: hidden;
         transform: translateX(-6px);
+    }
+    .app-shell.sidebar-collapsed .sidebar-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 4px;
+        font-size: .68rem;
     }
     .main {
         min-width: 0;
@@ -482,7 +506,7 @@
                 <p class="sidebar-title">Overview</p>
                 <nav class="sidebar-nav">
                     <a class="sidebar-link {% if active_page == 'overview' %}active{% endif %}" href="/dashboard" title="Dashboard"><i class="fa-solid fa-gauge-high"></i><span class="sidebar-text">Dashboard</span></a>
-                    <a class="sidebar-link {% if active_page == 'verification' %}active{% endif %}" href="/dashboard/verifications" title="Seller Verification"><i class="fa-solid fa-user-check"></i><span class="sidebar-text">Seller Verification</span></a>
+                    <a class="sidebar-link {% if active_page == 'verification' %}active{% endif %}" href="/dashboard/verifications" title="Seller Verification"><i class="fa-solid fa-user-check"></i><span class="sidebar-text">Seller Verification</span>{% if pending_verification_count %}<span class="sidebar-badge">{{ pending_verification_count }}</span>{% endif %}</a>
                     <a class="sidebar-link {% if active_page == 'moderation' %}active{% endif %}" href="/dashboard/moderation" title="Listing Moderation"><i class="fa-solid fa-gavel"></i><span class="sidebar-text">Listing Moderation</span></a>
                 </nav>
             </div>
