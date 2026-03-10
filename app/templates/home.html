@@ -1,14 +1,174 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Studket Access</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f3efe5;
+            --paper: #fffaf2;
+            --ink: #1e2430;
+            --muted: #58606d;
+            --line: rgba(30, 36, 48, 0.14);
+            --accent: #0f766e;
+            --accent-strong: #115e59;
+            --warn: #9f1239;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Georgia, "Times New Roman", serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 28rem),
+                linear-gradient(135deg, #f7f2e8, #efe6d2 45%, #e8f5f2 100%);
+        }
+
+        .shell {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 48px 24px 80px;
+        }
+
+        .hero {
+            display: grid;
+            gap: 28px;
+            grid-template-columns: 1.2fr .8fr;
+            align-items: stretch;
+        }
+
+        .panel {
+            background: rgba(255, 250, 242, 0.88);
+            border: 1px solid var(--line);
+            border-radius: 28px;
+            padding: 28px;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 24px 60px rgba(30, 36, 48, 0.08);
+        }
+
+        .eyebrow {
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            font-size: 12px;
+            color: var(--accent-strong);
+            margin: 0 0 16px;
+        }
+
+        h1 {
+            font-size: clamp(2.6rem, 5vw, 5rem);
+            line-height: 0.95;
+            margin: 0 0 18px;
+        }
+
+        p {
+            color: var(--muted);
+            font-size: 1.05rem;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .cta-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 28px;
+        }
+
+        .cta {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 48px;
+            padding: 0 18px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 700;
+            border: 1px solid var(--line);
+        }
+
+        .cta.primary {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .cta.secondary {
+            color: var(--ink);
+            background: transparent;
+        }
+
+        .grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .role {
+            padding: 18px;
+            border-radius: 20px;
+            border: 1px solid var(--line);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.52));
+        }
+
+        .role strong {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 1rem;
+        }
+
+        .role span {
+            color: var(--muted);
+            line-height: 1.5;
+            font-size: 0.95rem;
+        }
+
+        .note {
+            margin-top: 18px;
+            color: var(--warn);
+            font-size: 0.92rem;
+        }
+
+        @media (max-width: 860px) {
+            .hero {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
-
 <body>
-    
+    <main class="shell">
+        <section class="hero">
+            <article class="panel">
+                <p class="eyebrow">Studket Access</p>
+                <h1>Secure sign-in for campus trading operations.</h1>
+                <p>User, management, and superadmin accounts now have one controlled entry point with hashed passwords, session-based access, and role-specific registration rules.</p>
+                <div class="cta-row">
+                    <a class="cta primary" href="/auth">Open Auth Portal</a>
+                    <a class="cta secondary" href="/docs">API Docs</a>
+                </div>
+            </article>
+            <aside class="panel">
+                <div class="grid">
+                    <div class="role">
+                        <strong>User</strong>
+                        <span>Create a marketplace account with profile details and campus information.</span>
+                    </div>
+                    <div class="role">
+                        <strong>Management</strong>
+                        <span>Register staff-facing access with a named management role for moderation and operations.</span>
+                    </div>
+                    <div class="role">
+                        <strong>Superadmin</strong>
+                        <span>Protected registration requires a server-side invite code and shares the same hardened login flow.</span>
+                    </div>
+                </div>
+                <p class="note">Set <code>SECRET_KEY</code> and <code>SUPERADMIN_INVITE_CODE</code> in `.env` for production-grade deployment.</p>
+            </aside>
+        </section>
+    </main>
 </body>
-
 </html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        :root {
+            --surface: #fff9f0;
+            --ink: #1b2230;
+            --muted: #5d6673;
+            --line: rgba(27, 34, 48, 0.12);
+            --accent: #0f766e;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Georgia, "Times New Roman", serif;
+            background: linear-gradient(160deg, #f8f4ea, #ecf5f2);
+            color: var(--ink);
+        }
+
+        .wrap {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px 64px;
+        }
+
+        .card {
+            background: rgba(255, 249, 240, 0.92);
+            border: 1px solid var(--line);
+            border-radius: 28px;
+            padding: 28px;
+            box-shadow: 0 22px 54px rgba(27, 34, 48, 0.08);
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: clamp(2rem, 4vw, 3.3rem);
+        }
+
+        p {
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        dl {
+            display: grid;
+            grid-template-columns: max-content 1fr;
+            gap: 12px 18px;
+            margin: 24px 0 0;
+        }
+
+        dt { font-weight: 700; }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 28px;
+        }
+
+        a, button {
+            min-height: 46px;
+            padding: 0 18px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: white;
+            color: var(--ink);
+            text-decoration: none;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+    </style>
+</head>
+<body>
+    <main class="wrap">
+        <section class="card">
+            <h1>Welcome back, {{ account.username }}</h1>
+            <p>Your authenticated session is active. This page is intentionally minimal and confirms that the secure login flow and role-aware session storage are working.</p>
+            <dl>
+                <dt>Account ID</dt>
+                <dd>{{ account.account_id }}</dd>
+                <dt>Email</dt>
+                <dd>{{ account.email }}</dd>
+                <dt>Role</dt>
+                <dd>{{ account.account_type }}</dd>
+            </dl>
+            <div class="actions">
+                <a href="/">Return to portal</a>
+                <form method="post" action="/logout">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit">Log out</button>
+                </form>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
