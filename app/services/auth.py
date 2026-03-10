@@ -9,10 +9,12 @@ from app.core.security import (
     validate_password_strength,
     verify_password,
 )
-from app.db.models import Account, ManagementAccount, UserProfile
+from app.db.models import Account, AppSetting, ManagementAccount, UserProfile
 
 
 ALLOWED_ACCOUNT_TYPES = {"user", "management", "superadmin"}
+DEFAULT_MANAGEMENT_SESSION_TIMEOUT_MINUTES = 30
+MANAGEMENT_SESSION_TIMEOUT_SETTING_KEY = "management_session_timeout_minutes"
 
 
 @dataclass
@@ -125,3 +127,39 @@ def authenticate_account(
         raise AuthServiceError("Account is not active")
 
     return account
+
+
+def get_management_session_timeout_minutes(db: Session) -> int:
+    setting = (
+        db.query(AppSetting)
+        .filter(AppSetting.setting_key == MANAGEMENT_SESSION_TIMEOUT_SETTING_KEY)
+        .first()
+    )
+    if setting is None:
+        return DEFAULT_MANAGEMENT_SESSION_TIMEOUT_MINUTES
+
+    try:
+        value = int(setting.setting_value)
+    except ValueError:
+        return DEFAULT_MANAGEMENT_SESSION_TIMEOUT_MINUTES
+    return max(5, min(value, 240))
+
+
+def set_management_session_timeout_minutes(db: Session, minutes: int) -> int:
+    bounded_minutes = max(5, min(minutes, 240))
+    setting = (
+        db.query(AppSetting)
+        .filter(AppSetting.setting_key == MANAGEMENT_SESSION_TIMEOUT_SETTING_KEY)
+        .first()
+    )
+    if setting is None:
+        setting = AppSetting(
+            setting_key=MANAGEMENT_SESSION_TIMEOUT_SETTING_KEY,
+            setting_value=str(bounded_minutes),
+        )
+        db.add(setting)
+    else:
+        setting.setting_value = str(bounded_minutes)
+
+    db.commit()
+    return bounded_minutes

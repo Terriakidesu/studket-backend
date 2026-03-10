@@ -261,3 +261,57 @@ class Notification(Base):
     read_at = Column(TIMESTAMP)
 
     created_at = Column(TIMESTAMP, server_default=func.now())
+
+
+# =========================
+# SELLER VERIFICATION REQUEST
+# =========================
+
+class SellerVerificationRequest(Base):
+    __tablename__ = "seller_verification_request"
+
+    request_id = Column(Integer, primary_key=True)
+
+    user_id = Column(Integer, ForeignKey("user_profile.user_id", ondelete="CASCADE"), nullable=False)
+    status = Column(String, default="pending", nullable=False)
+    submission_note = Column(Text)
+
+    reviewed_by = Column(Integer, ForeignKey("account.account_id"))
+    review_note = Column(Text)
+
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    reviewed_at = Column(TIMESTAMP)
+
+
+# =========================
+# APP SETTINGS
+# =========================
+
+class AppSetting(Base):
+    __tablename__ = "app_setting"
+
+    setting_key = Column(String, primary_key=True)
+    setting_value = Column(String, nullable=False)
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
+# =========================
+# AUDIT LOG
+# =========================
+
+class AuditLog(Base):
+    __tablename__ = "audit_log"
+
+    audit_log_id = Column(Integer, primary_key=True)
+
+    actor_account_id = Column(Integer, ForeignKey("account.account_id"))
+    actor_username = Column(String)
+    actor_role = Column(String)
+
+    action = Column(String, nullable=False)
+    target_type = Column(String)
+    target_id = Column(String)
+    target_label = Column(String)
+    details = Column(Text)
+
+    created_at = Column(TIMESTAMP, server_default=func.now())

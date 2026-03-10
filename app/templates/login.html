@@ -1,154 +1,114 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }} | Login</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            min-height: 100vh;
-            background:
-                radial-gradient(circle at top right, rgba(13, 110, 253, 0.18), transparent 22rem),
-                linear-gradient(145deg, #f7f3eb, #ecf4ff 55%, #eef8f5);
-            font-family: "Inter", "Segoe UI", sans-serif;
-        }
+{% extends "base.html" %}
 
-        .hero-card,
-        .auth-card {
-            border: 0;
-            border-radius: 1.75rem;
-            box-shadow: 0 1.5rem 3rem rgba(15, 23, 42, 0.08);
-            backdrop-filter: blur(16px);
-        }
+{% block title %}Secure Access | Login{% endblock %}
 
-        .hero-card {
-            background: rgba(17, 24, 39, 0.9);
-            color: #f8fafc;
-        }
+{% block head %}
+<style>
+    body {
+        min-height: 100vh;
+        margin: 0;
+        background:
+            radial-gradient(circle at top right, rgba(13, 110, 253, 0.18), transparent 22rem),
+            linear-gradient(145deg, #f7f3eb, #ecf4ff 55%, #eef8f5);
+        font-family: "Segoe UI", sans-serif;
+    }
+    .container { max-width: 1120px; margin: 0 auto; padding: 40px 20px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; }
+    .topbar a { text-decoration: none; color: #0f172a; font-weight: 600; }
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .card {
+        border-radius: 28px; padding: 32px; box-shadow: 0 24px 54px rgba(15, 23, 42, 0.08);
+        border: 1px solid rgba(15, 23, 42, 0.08);
+    }
+    .hero { background: rgba(17, 24, 39, 0.92); color: #f8fafc; }
+    .panel { background: rgba(255, 255, 255, 0.94); }
+    .roles { display: grid; gap: 14px; margin-top: 24px; }
+    .role { border-radius: 18px; padding: 16px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.06); }
+    .alert { border-radius: 18px; padding: 14px 16px; margin-bottom: 16px; }
+    .alert.error { background: rgba(180, 35, 24, 0.08); color: #b42318; }
+    .alert.success { background: rgba(22, 101, 52, 0.08); color: #166534; }
+    .role-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
+    .role-option { border: 1px solid rgba(15, 23, 42, 0.12); border-radius: 18px; padding: 16px; }
+    .role-option.active { border-color: #2563eb; background: rgba(37, 99, 235, 0.06); }
+    .field { display: grid; gap: 8px; margin-bottom: 16px; }
+    .field label { font-weight: 600; color: #0f172a; }
+    .field input { min-height: 50px; border-radius: 16px; border: 1px solid rgba(15, 23, 42, 0.12); padding: 0 14px; font: inherit; }
+    .submit {
+        width: 100%; min-height: 52px; border: 0; border-radius: 18px;
+        background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; font-weight: 700; cursor: pointer;
+    }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
 
-        .auth-card {
-            background: rgba(255, 255, 255, 0.92);
-        }
-
-        .role-option {
-            border: 1px solid rgba(15, 23, 42, 0.12);
-            border-radius: 1rem;
-            padding: 1rem;
-            cursor: pointer;
-            transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
-        }
-
-        .role-option:hover {
-            transform: translateY(-1px);
-            border-color: rgba(13, 110, 253, 0.45);
-            box-shadow: 0 0.75rem 1.5rem rgba(13, 110, 253, 0.08);
-        }
-
-        .role-option input:checked + span {
-            color: #0d6efd;
-        }
-
-        .role-option.active {
-            border-color: #0d6efd;
-            background: rgba(13, 110, 253, 0.06);
-        }
-    </style>
-</head>
-<body>
-    <div class="container py-5">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <a href="/" class="text-decoration-none fw-semibold text-dark">Studket</a>
-            <div class="d-flex gap-3">
-                <a href="/auth/register" class="text-decoration-none">Create account</a>
-                <a href="/docs" class="text-decoration-none">API Docs</a>
-            </div>
-        </div>
-
-        <div class="row g-4 align-items-stretch">
-            <div class="col-lg-6">
-                <div class="hero-card h-100 p-4 p-md-5">
-                    <div class="text-uppercase small fw-bold text-info mb-3">Web Console</div>
-                    <h1 class="display-5 fw-semibold mb-3">Management and superadmin access only.</h1>
-                    <p class="fs-5 text-light-emphasis mb-4">Regular users continue to sign in through the app. This web login is reserved for operational staff and platform administration.</p>
-                    <div class="d-grid gap-3">
-                        <div class="p-3 rounded-4 bg-light bg-opacity-10">
-                            <div class="fw-semibold mb-1">Management</div>
-                            <div class="text-light-emphasis">Moderation, operations, and internal workflow access.</div>
-                        </div>
-                        <div class="p-3 rounded-4 bg-light bg-opacity-10">
-                            <div class="fw-semibold mb-1">Superadmin</div>
-                            <div class="text-light-emphasis">Protected elevated access with invite-code-gated registration.</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-lg-6">
-                <div class="auth-card p-4 p-md-5">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div>
-                            <h2 class="h3 mb-1">Sign in</h2>
-                            <p class="text-secondary mb-0">Use your management or superadmin credentials.</p>
-                        </div>
-                        <a href="/auth/register" class="btn btn-outline-primary rounded-pill">Register</a>
-                    </div>
-
-                    {% if error %}
-                    <div class="alert alert-danger rounded-4">{{ error }}</div>
-                    {% endif %}
-                    {% if success %}
-                    <div class="alert alert-success rounded-4">{{ success }}</div>
-                    {% endif %}
-
-                    <form method="post" action="/auth/login" class="mt-4">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-
-                        <div class="row g-3 mb-4">
-                            <div class="col-sm-6">
-                                <label class="role-option d-block active" data-role-card="management">
-                                    <input class="form-check-input me-2" type="radio" name="account_type" value="management" {% if active_role == "management" %}checked{% endif %}>
-                                    <span class="fw-semibold">Management</span>
-                                    <div class="small text-secondary mt-2">Staff console access</div>
-                                </label>
-                            </div>
-                            <div class="col-sm-6">
-                                <label class="role-option d-block {% if active_role == 'superadmin' %}active{% endif %}" data-role-card="superadmin">
-                                    <input class="form-check-input me-2" type="radio" name="account_type" value="superadmin" {% if active_role == "superadmin" %}checked{% endif %}>
-                                    <span class="fw-semibold">Superadmin</span>
-                                    <div class="small text-secondary mt-2">Platform-level access</div>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Email or username</label>
-                            <input class="form-control form-control-lg rounded-4" type="text" name="identity" value="{{ form_data.get('identity', '') }}" autocomplete="username" required>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="form-label fw-semibold">Password</label>
-                            <input class="form-control form-control-lg rounded-4" type="password" name="password" autocomplete="current-password" required>
-                        </div>
-
-                        <button class="btn btn-primary btn-lg w-100 rounded-4" type="submit">Sign in securely</button>
-                    </form>
-                </div>
-            </div>
+{% block content %}
+<main class="container">
+    <div class="topbar">
+        <a href="/">Studket</a>
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+            <a href="/auth/register">Create account</a>
+            <a href="/docs">API Docs</a>
         </div>
     </div>
+    <section class="layout">
+        <article class="card hero">
+            <p style="letter-spacing:.22em; text-transform:uppercase; font-size:12px; color:#7dd3fc; margin:0 0 14px;">Web Console</p>
+            <h1 style="font-size:clamp(2.2rem, 5vw, 4rem); line-height:.95; margin:0 0 16px;">Operations login for management and superadmin.</h1>
+            <p style="color:#cbd5e1; line-height:1.7;">Use this web sign-in for moderation, review queues, and marketplace oversight. Regular users continue to authenticate only through the app.</p>
+            <div class="roles">
+                <div class="role">
+                    <strong>Management</strong>
+                    <div style="color:#cbd5e1;">See verification requests, moderation queues, user metrics, and seller quality insights.</div>
+                </div>
+                <div class="role">
+                    <strong>Superadmin</strong>
+                    <div style="color:#cbd5e1;">Everything management can do, plus control over the management session timeout.</div>
+                </div>
+            </div>
+        </article>
+        <section class="card panel">
+            <h2 style="margin:0 0 8px;">Sign in</h2>
+            <p style="color:#64748b; margin:0 0 18px;">Choose your role and continue to the dashboard.</p>
+            {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+            {% if success %}<div class="alert success">{{ success }}</div>{% endif %}
+            <form method="post" action="/auth/login">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <div class="role-picker">
+                    <label class="role-option {% if active_role != 'superadmin' %}active{% endif %}" data-role-card="management">
+                        <input type="radio" name="account_type" value="management" {% if active_role != "superadmin" %}checked{% endif %}>
+                        <strong>Management</strong>
+                    </label>
+                    <label class="role-option {% if active_role == 'superadmin' %}active{% endif %}" data-role-card="superadmin">
+                        <input type="radio" name="account_type" value="superadmin" {% if active_role == "superadmin" %}checked{% endif %}>
+                        <strong>Superadmin</strong>
+                    </label>
+                </div>
+                <div class="field">
+                    <label>Email or username</label>
+                    <input type="text" name="identity" value="{{ form_data.get('identity', '') }}" autocomplete="username" required>
+                </div>
+                <div class="field">
+                    <label>Password</label>
+                    <input type="password" name="password" autocomplete="current-password" required>
+                </div>
+                <button class="submit" type="submit">Sign in securely</button>
+            </form>
+        </section>
+    </section>
+</main>
+{% endblock %}
 
-    <script>
-        const roleCards = document.querySelectorAll("[data-role-card]");
-        roleCards.forEach((card) => {
-            const input = card.querySelector("input");
-            const sync = () => {
-                roleCards.forEach((item) => item.classList.toggle("active", item === card && input.checked));
-            };
-            input.addEventListener("change", sync);
-            card.addEventListener("click", sync);
-            sync();
-        });
-    </script>
-</body>
-</html>
+{% block scripts %}
+<script>
+    const roleCards = document.querySelectorAll("[data-role-card]");
+    roleCards.forEach((card) => {
+        const input = card.querySelector("input");
+        const sync = () => {
+            roleCards.forEach((item) => item.classList.toggle("active", item === card && input.checked));
+        };
+        input.addEventListener("change", sync);
+        card.addEventListener("click", sync);
+        sync();
+    });
+</script>
+{% endblock %}
