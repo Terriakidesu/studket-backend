@@ -7,7 +7,7 @@ This document describes the HTTP API exposed by this repository as of March 11, 
 - Application router root: `/api`
 - Versioned API root: `/api/v1`
 - Static files and web pages are mounted separately and are not covered here.
-- Realtime websocket endpoints are also outside the scope of this page.
+- Realtime websocket endpoints are documented in the websocket section below.
 
 Effective API URL pattern:
 
@@ -20,6 +20,11 @@ Examples:
 - `/api/v1/auth/register`
 - `/api/v1/listings/feed`
 - `/api/v1/accounts/`
+
+Realtime examples:
+
+- `/ws/management`
+- `/ws/users/12`
 
 ## Authentication and Access Rules
 
@@ -61,6 +66,474 @@ Recommended request header:
 ```http
 Content-Type: application/json
 ```
+
+For websocket connections:
+
+- Connect with a normal websocket client
+- Send and receive JSON messages over the socket
+
+## Websocket Endpoints
+
+Base websocket paths:
+
+- `/ws/management`
+- `/ws/users/{account_id}`
+
+These routes are mounted directly on the main app, not under `/api` or `/api/v1`.
+
+Implementation sources:
+
+- [app/realtime.py](/abs/path/d:/Dev/Python/studket-backend/app/realtime.py)
+- [app/services/realtime.py](/abs/path/d:/Dev/Python/studket-backend/app/services/realtime.py)
+
+### Connection Model
+
+The realtime layer keeps three in-memory subscription groups:
+
+- account-level connections
+- conversation-level subscriptions
+- management-wide connections
+
+Events can therefore be sent:
+
+- to one account
+- to all subscribers of one conversation
+- to all connected management sockets
+
+### Management Socket
+
+Endpoint:
+
+- `/ws/management`
+
+Access model:
+
+- Requires a valid web session in `websocket.session`
+- Session account must be `management` or `superadmin`
+- If the session is missing, expired, malformed, or not an allowed account type, the socket closes with code `1008`
+
+Bootstrap event sent immediately after connect:
+
+```json
+{
+  "type": "bootstrap",
+  "channel": "management",
+  "account": {
+    "account_id": 2,
+    "username": "ops_manager",
+    "account_type": "management"
+  },
+  "conversation_ids": [15, 18],
+  "conversations": [
+    {
+      "conversation_id": 15,
+      "conversation_type": "staff_support",
+      "last_message_at": "2026-03-11T10:00:00+00:00",
+      "message_count": 4,
+      "other_account_id": 12,
+      "other_username": "campusbuyer1",
+      "other_account_type": "user"
+    }
+  ],
+  "summary": {
+    "pending_verifications": 3,
+    "open_reports": 8
+  }
+}
+```
+
+Bootstrap fields:
+
+- `type` always `bootstrap`
+- `channel` always `management`
+- `account` session account object from the web session
+- `conversation_ids` `integer[]`
+  - conversation IDs the account is already part of
+- `conversations` `object[]`
+  - recent conversation summary rows
+- `summary.pending_verifications` `integer`
+  - count of `seller_verification_request` rows with `status = "pending"`
+- `summary.open_reports` `integer`
+  - combined count of open listing, looking-for, and seller reports
+
+Supported client actions:
+
+- `ping`
+- `subscribe_conversation`
+- `send_message`
+
+#### Management action: `ping`
+
+Client message:
+
+```json
+{
+  "action": "ping"
+}
+```
+
+Server response:
+
+```json
+{
+  "type": "pong"
+}
+```
+
+#### Management action: `subscribe_conversation`
+
+Subscribes the current socket to broadcast events for a conversation the management account participates in.
+
+Client message:
+
+```json
+{
+  "action": "subscribe_conversation",
+  "conversation_id": 15
+}
+```
+
+Success response:
+
+```json
+{
+  "type": "chat.subscribed",
+  "conversation_id": 15
+}
+```
+
+Behavior notes:
+
+- The subscription is granted only if the conversation exists and the current account is a participant.
+- Invalid or unauthorized conversation IDs are silently ignored.
+
+#### Management action: `send_message`
+
+Creates a message in a conversation and broadcasts it in realtime.
+
+Client message:
+
+```json
+{
+  "action": "send_message",
+  "conversation_id": 15,
+  "message_text": "We are reviewing your account."
+}
+```
+
+Effects:
+
+- Persists the message through the messaging service
+- Broadcasts a `chat.message` event to:
+  - all sockets subscribed to the conversation
+  - the sender account’s sockets
+  - the recipient account’s sockets
+- If the recipient is a normal `user`, also creates a notification and emits `notification.created`
+- If the recipient is management or superadmin, also broadcasts a `management.notification` event to all management sockets
+
+### User Socket
+
+Endpoint:
+
+- `/ws/users/{account_id}`
+
+Path arguments:
+
+- `account_id` `integer`, required
+
+Access model:
+
+- The path account must exist
+- The account must have `account_type = "user"`
+- The account must not be banned
+- If the account check fails, the socket closes with code `1008`
+
+Important security note:
+
+- This route currently authenticates only by path `account_id`.
+- It does not verify a matching user session or token inside the websocket handler.
+- Documentation here reflects the current implementation, not an ideal security design.
+
+Bootstrap event sent immediately after connect:
+
+```json
+{
+  "type": "bootstrap",
+  "channel": "user",
+  "account": {
+    "account_id": 12,
+    "username": "campusbuyer1",
+    "account_type": "user",
+    "account_status": "active"
+  },
+  "conversation_ids": [15],
+  "conversations": [
+    {
+      "conversation_id": 15,
+      "conversation_type": "staff_support",
+      "last_message_at": "2026-03-11T10:00:00+00:00",
+      "message_count": 4,
+      "other_account_id": 2,
+      "other_username": "ops_manager",
+      "other_account_type": "management"
+    }
+  ],
+  "notifications": [
+    {
+      "notification_id": 7,
+      "user_id": 12,
+      "notification_type": "chat_message",
+      "title": "New message from ops_manager",
+      "body": "We are reviewing your account.",
+      "related_entity_type": "conversation",
+      "related_entity_id": 15,
+      "is_read": false,
+      "read_at": null,
+      "created_at": "2026-03-11T10:00:00+00:00"
+    }
+  ]
+}
+```
+
+Bootstrap fields:
+
+- `type` always `bootstrap`
+- `channel` always `user`
+- `account` basic account summary
+- `conversation_ids` `integer[]`
+- `conversations` `object[]`
+  - same summary structure as the management bootstrap
+- `notifications` `object[]`
+  - up to 20 most recent user notifications
+
+Supported client actions:
+
+- `ping`
+- `subscribe_conversation`
+- `mark_notification_read`
+- `send_message`
+
+#### User action: `ping`
+
+Client message:
+
+```json
+{
+  "action": "ping"
+}
+```
+
+Server response:
+
+```json
+{
+  "type": "pong"
+}
+```
+
+#### User action: `subscribe_conversation`
+
+Client message:
+
+```json
+{
+  "action": "subscribe_conversation",
+  "conversation_id": 15
+}
+```
+
+Success response:
+
+```json
+{
+  "type": "chat.subscribed",
+  "conversation_id": 15
+}
+```
+
+Behavior notes:
+
+- The conversation must exist.
+- The path `account_id` must be a participant in that conversation.
+- Invalid or unauthorized conversation IDs are silently ignored.
+
+#### User action: `mark_notification_read`
+
+Marks one notification as read and returns the updated notification payload.
+
+Client message:
+
+```json
+{
+  "action": "mark_notification_read",
+  "notification_id": 7
+}
+```
+
+Success response:
+
+```json
+{
+  "type": "notification.updated",
+  "notification": {
+    "notification_id": 7,
+    "user_id": 12,
+    "notification_type": "chat_message",
+    "title": "New message from ops_manager",
+    "body": "We are reviewing your account.",
+    "related_entity_type": "conversation",
+    "related_entity_id": 15,
+    "is_read": true,
+    "read_at": "2026-03-11T10:05:00+00:00",
+    "created_at": "2026-03-11T10:00:00+00:00"
+  }
+}
+```
+
+Behavior notes:
+
+- If the notification does not exist or does not belong to the current user socket, the action is ignored.
+
+#### User action: `send_message`
+
+Client message:
+
+```json
+{
+  "action": "send_message",
+  "conversation_id": 15,
+  "message_text": "Thanks for the update."
+}
+```
+
+Effects:
+
+- Persists the message through the messaging service
+- Broadcasts a `chat.message` event to the conversation and both participant accounts
+- If the recipient is also a `user`, creates a notification and emits `notification.created`
+
+### Server Event Types
+
+The websocket layer currently emits the following event types:
+
+- `bootstrap`
+- `pong`
+- `chat.subscribed`
+- `chat.message`
+- `notification.created`
+- `notification.updated`
+- `management.notification`
+- `error`
+
+#### Event: `chat.message`
+
+Emitted when either side sends a message.
+
+Payload shape:
+
+```json
+{
+  "type": "chat.message",
+  "conversation_id": 15,
+  "message": {
+    "message_id": 22,
+    "conversation_id": 15,
+    "sender_id": 2,
+    "message_text": "We are reviewing your account.",
+    "sent_at": "2026-03-11T10:00:00+00:00",
+    "is_read": false,
+    "sender_username": "ops_manager"
+  }
+}
+```
+
+#### Event: `notification.created`
+
+Emitted when the backend creates a user notification and pushes it to the connected account.
+
+Payload shape:
+
+```json
+{
+  "type": "notification.created",
+  "notification": {
+    "notification_id": 7,
+    "user_id": 12,
+    "notification_type": "chat_message",
+    "title": "New message from ops_manager",
+    "body": "We are reviewing your account.",
+    "related_entity_type": "conversation",
+    "related_entity_id": 15,
+    "is_read": false,
+    "read_at": null,
+    "created_at": "2026-03-11T10:00:00+00:00"
+  }
+}
+```
+
+Typical notification types seen in the codebase:
+
+- `chat_message`
+- `seller_verification`
+- `listing_removed`
+- `account_warning`
+- `account_status`
+
+#### Event: `notification.updated`
+
+Emitted after a user marks one notification as read.
+
+Payload shape:
+
+```json
+{
+  "type": "notification.updated",
+  "notification": {
+    "notification_id": 7,
+    "is_read": true,
+    "read_at": "2026-03-11T10:05:00+00:00"
+  }
+}
+```
+
+#### Event: `management.notification`
+
+Broadcast to all connected management sockets when a user-facing chat event needs management awareness.
+
+Payload shape:
+
+```json
+{
+  "type": "management.notification",
+  "category": "chat",
+  "title": "New user message",
+  "body": "campusbuyer1 sent a message.",
+  "conversation_id": 15,
+  "account_id": 2
+}
+```
+
+#### Event: `error`
+
+Returned when a client sends an unsupported action.
+
+Payload shape:
+
+```json
+{
+  "type": "error",
+  "detail": "Unsupported action"
+}
+```
+
+### Disconnect and Cleanup Behavior
+
+- Socket acceptance happens inside the realtime hub on successful connect.
+- On disconnect or send failure, the hub removes the socket from:
+  - account-level subscriptions
+  - management-wide subscriptions
+  - conversation subscriptions
+- Empty conversation subscription buckets are cleaned up automatically.
 
 ## Response and Error Conventions
 
