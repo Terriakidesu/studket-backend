@@ -3,11 +3,24 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy import func, or_
+from sqlalchemy.orm import Session, aliased
 
 from app.core.security import SUPERADMIN_INVITE_CODE, generate_csrf_token
-from app.db.models import AuditLog, Account, Listing, Review, SellerVerificationRequest, Transaction, UserProfile
+from app.db.models import (
+    AuditLog,
+    Account,
+    Conversation,
+    ConversationReport,
+    Listing,
+    ListingReport,
+    LookingForReport,
+    Review,
+    SellerReport,
+    SellerVerificationRequest,
+    Transaction,
+    UserProfile,
+)
 from app.db.session import get_db
 from app.services.audit import create_audit_log
 from app.services.auth import (
@@ -120,6 +133,36 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         or 0
     )
     listings_count = db.query(func.count(Listing.listing_id)).scalar() or 0
+    open_listing_reports = (
+        db.query(func.count(ListingReport.report_id))
+        .filter(ListingReport.status == "open")
+        .scalar()
+        or 0
+    )
+    open_looking_for_reports = (
+        db.query(func.count(LookingForReport.report_id))
+        .filter(LookingForReport.status == "open")
+        .scalar()
+        or 0
+    )
+    open_chat_reports = (
+        db.query(func.count(ConversationReport.report_id))
+        .filter(ConversationReport.status == "open")
+        .scalar()
+        or 0
+    )
+    open_seller_reports = (
+        db.query(func.count(SellerReport.report_id))
+        .filter(SellerReport.status == "open")
+        .scalar()
+        or 0
+    )
+    reported_sellers_count = (
+        db.query(func.count(func.distinct(SellerReport.seller_id)))
+        .filter(SellerReport.status == "open")
+        .scalar()
+        or 0
+    )
 
     verification_requests = (
         db.query(
@@ -155,6 +198,120 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         .all()
     )
 
+    listing_reports = (
+        db.query(
+            Listing.listing_id,
+            Listing.title,
+            Listing.listing_type,
+            Listing.status,
+            Account.username.label("seller_username"),
+            func.count(ListingReport.report_id).label("report_count"),
+            func.max(ListingReport.created_at).label("last_reported_at"),
+        )
+        .join(Listing, Listing.listing_id == ListingReport.listing_id)
+        .outerjoin(Account, Account.account_id == Listing.seller_id)
+        .filter(ListingReport.status == "open")
+        .filter(or_(Listing.listing_type.is_(None), Listing.listing_type != "looking_for"))
+        .group_by(
+            Listing.listing_id,
+            Listing.title,
+            Listing.listing_type,
+            Listing.status,
+            Account.username,
+        )
+        .order_by(
+            func.count(ListingReport.report_id).desc(),
+            func.max(ListingReport.created_at).desc(),
+        )
+        .limit(12)
+        .all()
+    )
+
+    looking_for_reports = (
+        db.query(
+            Listing.listing_id,
+            Listing.title,
+            Listing.status,
+            Account.username.label("requester_username"),
+            func.count(LookingForReport.report_id).label("report_count"),
+            func.max(LookingForReport.created_at).label("last_reported_at"),
+        )
+        .join(Listing, Listing.listing_id == LookingForReport.listing_id)
+        .outerjoin(Account, Account.account_id == Listing.seller_id)
+        .filter(LookingForReport.status == "open")
+        .filter(Listing.listing_type == "looking_for")
+        .group_by(
+            Listing.listing_id,
+            Listing.title,
+            Listing.status,
+            Account.username,
+        )
+        .order_by(
+            func.count(LookingForReport.report_id).desc(),
+            func.max(LookingForReport.created_at).desc(),
+        )
+        .limit(12)
+        .all()
+    )
+
+    participant1 = aliased(Account)
+    participant2 = aliased(Account)
+    reported_account = aliased(Account)
+    conversation_reports = (
+        db.query(
+            Conversation.conversation_id,
+            participant1.username.label("participant1_username"),
+            participant2.username.label("participant2_username"),
+            reported_account.username.label("reported_username"),
+            func.count(ConversationReport.report_id).label("report_count"),
+            func.max(ConversationReport.created_at).label("last_reported_at"),
+        )
+        .join(Conversation, Conversation.conversation_id == ConversationReport.conversation_id)
+        .outerjoin(participant1, participant1.account_id == Conversation.participant1_id)
+        .outerjoin(participant2, participant2.account_id == Conversation.participant2_id)
+        .outerjoin(reported_account, reported_account.account_id == ConversationReport.reported_account_id)
+        .filter(ConversationReport.status == "open")
+        .group_by(
+            Conversation.conversation_id,
+            participant1.username,
+            participant2.username,
+            reported_account.username,
+        )
+        .order_by(
+            func.count(ConversationReport.report_id).desc(),
+            func.max(ConversationReport.created_at).desc(),
+        )
+        .limit(12)
+        .all()
+    )
+
+    seller_reports = (
+        db.query(
+            Account.account_id.label("seller_id"),
+            Account.username,
+            Account.account_status,
+            Account.warning_count,
+            Account.last_warned_at,
+            func.count(SellerReport.report_id).label("report_count"),
+            func.max(SellerReport.created_at).label("last_reported_at"),
+        )
+        .join(SellerReport, SellerReport.seller_id == Account.account_id)
+        .filter(SellerReport.status == "open")
+        .group_by(
+            Account.account_id,
+            Account.username,
+            Account.account_status,
+            Account.warning_count,
+            Account.last_warned_at,
+        )
+        .order_by(
+            func.count(SellerReport.report_id).desc(),
+            func.max(SellerReport.created_at).desc(),
+        )
+        .limit(12)
+        .all()
+    )
+
     lowest_rated_seller = (
         db.query(
             Review.reviewee_id,
@@ -180,6 +337,12 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         "approved": sum(1 for row in verification_requests if row.status == "approved"),
         "rejected": sum(1 for row in verification_requests if row.status == "rejected"),
     }
+    total_open_reports = (
+        open_listing_reports
+        + open_looking_for_reports
+        + open_chat_reports
+        + open_seller_reports
+    )
     listing_type_chart = {
         "single_item": sum(1 for row in listings if row.listing_type == "single_item"),
         "stock_item": sum(1 for row in listings if row.listing_type == "stock_item"),
@@ -201,10 +364,23 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
             "buyers_count": buyers_count,
             "sellers_count": sellers_count,
             "listings_count": listings_count,
+            "open_reports_count": total_open_reports,
+            "reported_sellers_count": reported_sellers_count,
         },
         "verification_requests": verification_requests,
         "pending_verification_count": verification_chart["pending"],
+        "pending_moderation_count": total_open_reports,
         "listings": listings,
+        "listing_reports": listing_reports,
+        "looking_for_reports": looking_for_reports,
+        "conversation_reports": conversation_reports,
+        "seller_reports": seller_reports,
+        "report_counts": {
+            "listing": open_listing_reports,
+            "looking_for": open_looking_for_reports,
+            "chat": open_chat_reports,
+            "seller": open_seller_reports,
+        },
         "lowest_rated_seller": lowest_rated_seller,
         "management_timeout_minutes": timeout_minutes,
         "is_superadmin": account.get("account_type") == "superadmin",
@@ -218,6 +394,12 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
             },
             "verification_status": verification_chart,
             "listing_types": listing_type_chart,
+            "report_categories": {
+                "listing": open_listing_reports,
+                "looking_for": open_looking_for_reports,
+                "chat": open_chat_reports,
+                "seller": open_seller_reports,
+            },
         },
     }
 
@@ -473,8 +655,8 @@ def dashboard_moderation(request: Request, db: Session = Depends(get_db)):
     context.update(
         {
             "active_page": "moderation",
-            "page_title": "Listing Moderation",
-            "page_description": "Review marketplace posts and remove inappropriate listings or looking-for posts.",
+            "page_title": "Trust and Safety",
+            "page_description": "Review reported listings, looking-for posts, chats, and sellers from one moderation queue.",
         }
     )
     return templates.TemplateResponse("dashboard/moderation.html", context)
@@ -673,6 +855,85 @@ def delete_listing(
         db.delete(listing)
         db.commit()
     return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/dashboard/sellers/{seller_id}/warn")
+def warn_seller(
+    seller_id: int,
+    request: Request,
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        account = _require_web_session(request)
+        _verify_csrf(request, csrf_token)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    seller = (
+        db.query(Account)
+        .filter(Account.account_id == seller_id, Account.account_type == "user")
+        .first()
+    )
+    if seller is None:
+        return RedirectResponse(url="/dashboard/moderation", status_code=status.HTTP_303_SEE_OTHER)
+
+    seller.warning_count = (seller.warning_count or 0) + 1
+    seller.last_warned_at = datetime.now(timezone.utc)
+    if seller.account_status != "banned":
+        seller.account_status = "warned"
+
+    create_audit_log(
+        db,
+        actor_account_id=account["account_id"],
+        actor_username=account["username"],
+        actor_role=account["account_type"],
+        action="warn_seller",
+        target_type="account",
+        target_id=str(seller.account_id),
+        target_label=seller.username,
+        details=f"Issued warning #{seller.warning_count}",
+    )
+    db.commit()
+    return RedirectResponse(url="/dashboard/moderation", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/dashboard/sellers/{seller_id}/ban")
+def ban_seller(
+    seller_id: int,
+    request: Request,
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        account = _require_web_session(request)
+        _verify_csrf(request, csrf_token)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    seller = (
+        db.query(Account)
+        .filter(Account.account_id == seller_id, Account.account_type == "user")
+        .first()
+    )
+    if seller is None:
+        return RedirectResponse(url="/dashboard/moderation", status_code=status.HTTP_303_SEE_OTHER)
+
+    seller.account_status = "banned"
+
+    create_audit_log(
+        db,
+        actor_account_id=account["account_id"],
+        actor_username=account["username"],
+        actor_role=account["account_type"],
+        action="ban_seller",
+        target_type="account",
+        target_id=str(seller.account_id),
+        target_label=seller.username,
+        details="Banned seller from dashboard moderation",
+    )
+    db.commit()
+    return RedirectResponse(url="/dashboard/moderation", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/dashboard/settings/session-timeout")

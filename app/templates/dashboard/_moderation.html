@@ -1,6 +1,17 @@
 <article class="panel">
-    <h2><i class="fa-solid fa-gavel" style="margin-right:8px;"></i>Listing Moderation Queue</h2>
-    <p class="lead">Remove inappropriate listings and looking-for posts from the marketplace.</p>
+    <h2><i class="fa-solid fa-shield-halved" style="margin-right:8px;"></i>Report Queue Overview</h2>
+    <p class="lead">Track which listings, looking-for posts, chats, and sellers are being reported most often.</p>
+    <section class="grid metrics">
+        <article class="metric"><small>Listing Reports</small><strong>{{ report_counts.listing }}</strong></article>
+        <article class="metric"><small>Looking For Reports</small><strong>{{ report_counts.looking_for }}</strong></article>
+        <article class="metric"><small>Chat Reports</small><strong>{{ report_counts.chat }}</strong></article>
+        <article class="metric"><small>Seller Reports</small><strong>{{ report_counts.seller }}</strong></article>
+    </section>
+</article>
+
+<article class="panel">
+    <h2><i class="fa-solid fa-store" style="margin-right:8px;"></i>Reported Listings</h2>
+    <p class="lead">Listings reported for inappropriate content, ranked by total report count.</p>
     <div class="table-wrap">
         <table>
             <thead>
@@ -9,16 +20,20 @@
                     <th>Type</th>
                     <th>Seller</th>
                     <th>Status</th>
+                    <th>Reports</th>
+                    <th>Last Reported</th>
                     <th>Action</th>
                 </tr>
             </thead>
             <tbody>
-                {% for listing in listings %}
+                {% for listing in listing_reports %}
                 <tr>
-                    <td><strong>{{ listing.title }}</strong><br><span class="muted">#{{ listing.listing_id }} · {{ listing.created_at or "-" }}</span></td>
+                    <td><strong>{{ listing.title }}</strong><br><span class="muted">#{{ listing.listing_id }}</span></td>
                     <td>{{ listing.listing_type or "unknown" }}</td>
                     <td>{{ listing.seller_username or "unknown" }}</td>
                     <td>{{ listing.status or "unknown" }}</td>
+                    <td>{{ listing.report_count }}</td>
+                    <td>{{ listing.last_reported_at or "-" }}</td>
                     <td>
                         <form method="post" action="/dashboard/listings/{{ listing.listing_id }}/delete">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -27,7 +42,121 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="5" class="muted">No listings available for moderation.</td></tr>
+                <tr><td colspan="7" class="muted">No reported listings yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</article>
+
+<article class="panel">
+    <h2><i class="fa-solid fa-magnifying-glass" style="margin-right:8px;"></i>Reported Looking-For Posts</h2>
+    <p class="lead">Looking-for posts reported by users, including how many times each post was flagged.</p>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Post</th>
+                    <th>Requester</th>
+                    <th>Status</th>
+                    <th>Reports</th>
+                    <th>Last Reported</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for post in looking_for_reports %}
+                <tr>
+                    <td><strong>{{ post.title }}</strong><br><span class="muted">#{{ post.listing_id }}</span></td>
+                    <td>{{ post.requester_username or "unknown" }}</td>
+                    <td>{{ post.status or "unknown" }}</td>
+                    <td>{{ post.report_count }}</td>
+                    <td>{{ post.last_reported_at or "-" }}</td>
+                    <td>
+                        <form method="post" action="/dashboard/listings/{{ post.listing_id }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="danger"><i class="fa-solid fa-trash" style="margin-right:6px;"></i>Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="muted">No reported looking-for posts yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</article>
+
+<article class="panel">
+    <h2><i class="fa-solid fa-comments" style="margin-right:8px;"></i>Reported Chats</h2>
+    <p class="lead">Conversation-level reports so management can identify abusive or inappropriate chat activity.</p>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Conversation</th>
+                    <th>Reported User</th>
+                    <th>Reports</th>
+                    <th>Last Reported</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for conversation in conversation_reports %}
+                <tr>
+                    <td>
+                        <strong>#{{ conversation.conversation_id }}</strong><br>
+                        <span class="muted">{{ conversation.participant1_username or "unknown" }} and {{ conversation.participant2_username or "unknown" }}</span>
+                    </td>
+                    <td>{{ conversation.reported_username or "not specified" }}</td>
+                    <td>{{ conversation.report_count }}</td>
+                    <td>{{ conversation.last_reported_at or "-" }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="muted">No reported chats yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</article>
+
+<article class="panel">
+    <h2><i class="fa-solid fa-user-shield" style="margin-right:8px;"></i>Reported Sellers</h2>
+    <p class="lead">See which sellers are being reported most often and take warning or ban actions directly.</p>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Seller</th>
+                    <th>Status</th>
+                    <th>Warnings</th>
+                    <th>Reports</th>
+                    <th>Last Reported</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for seller in seller_reports %}
+                <tr>
+                    <td><strong>{{ seller.username }}</strong><br><span class="muted">#{{ seller.seller_id }}</span></td>
+                    <td><span class="badge {{ seller.account_status or 'open' }}">{{ seller.account_status or "active" }}</span></td>
+                    <td>{{ seller.warning_count or 0 }}</td>
+                    <td>{{ seller.report_count }}</td>
+                    <td>{{ seller.last_reported_at or "-" }}</td>
+                    <td>
+                        <div class="row-actions" style="margin-top:0;">
+                            <form method="post" action="/dashboard/sellers/{{ seller.seller_id }}/warn">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button type="submit"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Warn</button>
+                            </form>
+                            <form method="post" action="/dashboard/sellers/{{ seller.seller_id }}/ban">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button type="submit" class="danger"><i class="fa-solid fa-user-slash" style="margin-right:6px;"></i>Ban</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="muted">No reported sellers yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

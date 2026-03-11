@@ -123,7 +123,7 @@ def authenticate_account(
     account = query.first()
     if account is None or not verify_password(password, account.password_hash):
         raise AuthServiceError("Invalid credentials")
-    if account.account_status != "active":
+    if account.account_status in {"banned", "suspended"}:
         raise AuthServiceError("Account is not active")
 
     return account

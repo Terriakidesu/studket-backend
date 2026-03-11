@@ -18,6 +18,8 @@ class Account(Base):
 
     account_type = Column(String, nullable=False)
     account_status = Column(String, default="active")
+    warning_count = Column(Integer, default=0, nullable=False)
+    last_warned_at = Column(TIMESTAMP)
 
     created_at = Column(TIMESTAMP, server_default=func.now())
 
@@ -278,6 +280,99 @@ class SellerVerificationRequest(Base):
 
     reviewed_by = Column(Integer, ForeignKey("account.account_id"))
     review_note = Column(Text)
+
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    reviewed_at = Column(TIMESTAMP)
+
+
+# =========================
+# LISTING REPORT
+# =========================
+
+class ListingReport(Base):
+    __tablename__ = "listing_report"
+
+    report_id = Column(Integer, primary_key=True)
+
+    listing_id = Column(Integer, ForeignKey("listing.listing_id", ondelete="CASCADE"), nullable=False)
+    reporter_id = Column(Integer, ForeignKey("user_profile.user_id", ondelete="CASCADE"), nullable=False)
+
+    reason = Column(String, nullable=False)
+    details = Column(Text)
+    status = Column(String, default="open", nullable=False)
+
+    reviewed_by = Column(Integer, ForeignKey("account.account_id"))
+    resolution_note = Column(Text)
+
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    reviewed_at = Column(TIMESTAMP)
+
+
+# =========================
+# LOOKING FOR REPORT
+# =========================
+
+class LookingForReport(Base):
+    __tablename__ = "looking_for_report"
+
+    report_id = Column(Integer, primary_key=True)
+
+    listing_id = Column(Integer, ForeignKey("listing.listing_id", ondelete="CASCADE"), nullable=False)
+    reporter_id = Column(Integer, ForeignKey("user_profile.user_id", ondelete="CASCADE"), nullable=False)
+
+    reason = Column(String, nullable=False)
+    details = Column(Text)
+    status = Column(String, default="open", nullable=False)
+
+    reviewed_by = Column(Integer, ForeignKey("account.account_id"))
+    resolution_note = Column(Text)
+
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    reviewed_at = Column(TIMESTAMP)
+
+
+# =========================
+# CONVERSATION REPORT
+# =========================
+
+class ConversationReport(Base):
+    __tablename__ = "conversation_report"
+
+    report_id = Column(Integer, primary_key=True)
+
+    conversation_id = Column(Integer, ForeignKey("conversation.conversation_id", ondelete="CASCADE"), nullable=False)
+    reporter_id = Column(Integer, ForeignKey("user_profile.user_id", ondelete="CASCADE"), nullable=False)
+    reported_account_id = Column(Integer, ForeignKey("account.account_id"))
+
+    reason = Column(String, nullable=False)
+    details = Column(Text)
+    status = Column(String, default="open", nullable=False)
+
+    reviewed_by = Column(Integer, ForeignKey("account.account_id"))
+    resolution_note = Column(Text)
+
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    reviewed_at = Column(TIMESTAMP)
+
+
+# =========================
+# SELLER REPORT
+# =========================
+
+class SellerReport(Base):
+    __tablename__ = "seller_report"
+
+    report_id = Column(Integer, primary_key=True)
+
+    seller_id = Column(Integer, ForeignKey("user_profile.user_id", ondelete="CASCADE"), nullable=False)
+    reporter_id = Column(Integer, ForeignKey("user_profile.user_id", ondelete="CASCADE"), nullable=False)
+
+    reason = Column(String, nullable=False)
+    details = Column(Text)
+    status = Column(String, default="open", nullable=False)
+
+    reviewed_by = Column(Integer, ForeignKey("account.account_id"))
+    resolution_note = Column(Text)
 
     created_at = Column(TIMESTAMP, server_default=func.now())
     reviewed_at = Column(TIMESTAMP)

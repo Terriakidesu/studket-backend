@@ -355,7 +355,7 @@
         box-shadow: 0 12px 24px rgba(37, 99, 235, 0.20);
     }
     .grid { display: grid; gap: 18px; }
-    .metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .metrics { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
     .metric {
         position: relative;
         overflow: hidden;
@@ -394,6 +394,9 @@
     .badge.pending { background: rgba(180, 83, 9, .12); color: var(--warning); }
     .badge.approved { background: rgba(22, 101, 52, .12); color: var(--success); }
     .badge.rejected { background: rgba(180, 35, 24, .12); color: var(--danger); }
+    .badge.open { background: rgba(37, 99, 235, .12); color: var(--accent-strong); }
+    .badge.warned { background: rgba(180, 83, 9, .12); color: var(--warning); }
+    .badge.banned { background: rgba(180, 35, 24, .12); color: var(--danger); }
     .mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .input, textarea { width: 100%; border-radius: 14px; border: 1px solid var(--line); padding: 10px 12px; font: inherit; background: #fff; }
     textarea { min-height: 78px; resize: vertical; }
@@ -507,7 +510,7 @@
                 <nav class="sidebar-nav">
                     <a class="sidebar-link {% if active_page == 'overview' %}active{% endif %}" href="/dashboard" title="Dashboard"><i class="fa-solid fa-gauge-high"></i><span class="sidebar-text">Dashboard</span></a>
                     <a class="sidebar-link {% if active_page == 'verification' %}active{% endif %}" href="/dashboard/verifications" title="Seller Verification"><i class="fa-solid fa-user-check"></i><span class="sidebar-text">Seller Verification</span>{% if pending_verification_count %}<span class="sidebar-badge">{{ pending_verification_count }}</span>{% endif %}</a>
-                    <a class="sidebar-link {% if active_page == 'moderation' %}active{% endif %}" href="/dashboard/moderation" title="Listing Moderation"><i class="fa-solid fa-gavel"></i><span class="sidebar-text">Listing Moderation</span></a>
+                    <a class="sidebar-link {% if active_page == 'moderation' %}active{% endif %}" href="/dashboard/moderation" title="Trust and Safety"><i class="fa-solid fa-gavel"></i><span class="sidebar-text">Trust and Safety</span>{% if pending_moderation_count %}<span class="sidebar-badge">{{ pending_moderation_count }}</span>{% endif %}</a>
                 </nav>
             </div>
 

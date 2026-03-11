@@ -46,34 +46,34 @@
 
         <article class="panel">
             <h2><i class="fa-solid fa-gavel" style="margin-right:8px;"></i>Moderation Snapshot</h2>
-            <p class="lead">Latest listings and looking-for posts visible to management.</p>
+            <p class="lead">Sellers with the highest report volume so management can review risk quickly.</p>
             <div class="table-wrap">
                 <table>
                     <thead>
                         <tr>
-                            <th>Listing</th>
-                            <th>Type</th>
+                            <th>Seller</th>
                             <th>Status</th>
+                            <th>Reports</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for listing in listings[:5] %}
+                        {% for seller in seller_reports[:5] %}
                         <tr>
                             <td>
-                                <strong>{{ listing.title }}</strong><br>
-                                <span class="muted">{{ listing.seller_username or "unknown seller" }}</span>
+                                <strong>{{ seller.username }}</strong><br>
+                                <span class="muted">Warnings: {{ seller.warning_count or 0 }}</span>
                             </td>
-                            <td>{{ listing.listing_type or "unknown" }}</td>
-                            <td>{{ listing.status or "unknown" }}</td>
+                            <td><span class="badge {{ seller.account_status or 'open' }}">{{ seller.account_status or "active" }}</span></td>
+                            <td>{{ seller.report_count }}</td>
                         </tr>
                         {% else %}
-                        <tr><td colspan="3" class="muted">No listings available.</td></tr>
+                        <tr><td colspan="3" class="muted">No seller reports available.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
             <div class="row-actions">
-                <a class="button" href="/dashboard/moderation"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Moderation Page</a>
+                <a class="button" href="/dashboard/moderation"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Trust and Safety</a>
             </div>
         </article>
 
