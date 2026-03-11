@@ -854,6 +854,16 @@ Response shape:
       "condition": "used",
       "status": "available",
       "created_at": "2026-03-11T09:12:00",
+      "media": [
+        {
+          "media_id": 3,
+          "listing_id": 9,
+          "file_path": "/static/listing-media/9/example.jpg",
+          "file_url": "/static/listing-media/9/example.jpg",
+          "sort_order": 0
+        }
+      ],
+      "primary_media_url": "/static/listing-media/9/example.jpg",
       "seller_username": "seller44",
       "seller_campus": "North Campus",
       "tags": ["books", "math"],
@@ -874,6 +884,8 @@ Feed item fields:
 - `owner_id` `integer | null`
 - `poster_id` `integer | null`
   - Present only for `looking_for` posts
+- `media` `object[]`
+- `primary_media_url` `string | null`
 - `seller_username` `string | null`
 - `seller_campus` `string | null`
 - `tags` `string[]`
@@ -932,6 +944,16 @@ Response shape:
       "condition": "used",
       "status": "available",
       "created_at": "2026-03-11T09:12:00",
+      "media": [
+        {
+          "media_id": 3,
+          "listing_id": 9,
+          "file_path": "/static/listing-media/9/example.jpg",
+          "file_url": "/static/listing-media/9/example.jpg",
+          "sort_order": 0
+        }
+      ],
+      "primary_media_url": "/static/listing-media/9/example.jpg",
       "seller_username": "seller44",
       "seller_campus": "North Campus",
       "tags": ["books", "math"],
@@ -965,6 +987,8 @@ Response:
   - all table columns
   - `owner_id`
   - `poster_id` for `looking_for`
+  - `media`
+  - `primary_media_url`
 
 ### GET `/api/v1/listings/{item_id}`
 
@@ -984,6 +1008,66 @@ Response:
 - Serialized listing object
 - Includes `owner_id`
 - Includes `poster_id` when `listing_type == "looking_for"`
+- Includes `media`
+- Includes `primary_media_url`
+
+Possible errors:
+
+- `404 {"detail":"Listing not found"}`
+
+### GET `/api/v1/listings/{item_id}/media`
+
+Returns the ordered media collection for a single listing.
+
+Access:
+
+- Management session required
+
+Path arguments:
+
+- `item_id` `integer`, required
+  - Mapped to `Listing.listing_id`
+
+Response shape:
+
+```json
+{
+  "listing_id": 9,
+  "count": 2,
+  "items": [
+    {
+      "media_id": 3,
+      "listing_id": 9,
+      "file_path": "/static/listing-media/9/example.jpg",
+      "file_url": "/static/listing-media/9/example.jpg",
+      "sort_order": 0
+    },
+    {
+      "media_id": 4,
+      "listing_id": 9,
+      "file_path": "/static/listing-media/9/example-2.jpg",
+      "file_url": "/static/listing-media/9/example-2.jpg",
+      "sort_order": 1
+    }
+  ],
+  "primary_media_url": "/static/listing-media/9/example.jpg"
+}
+```
+
+Response fields:
+
+- `listing_id` `integer`
+- `count` `integer`
+- `items` `object[]`
+- `primary_media_url` `string | null`
+
+Media item fields:
+
+- `media_id` `integer`
+- `listing_id` `integer`
+- `file_path` `string | null`
+- `file_url` `string | null`
+- `sort_order` `integer | null`
 
 Possible errors:
 
