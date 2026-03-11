@@ -225,6 +225,25 @@ def _find_inquiry_conversation(
     )
 
 
+def _find_user_conversation(
+    *,
+    account_id: int,
+    other_account_id: int,
+    db: Session,
+) -> Conversation | None:
+    return (
+        db.query(Conversation)
+        .filter(
+            or_(
+                (Conversation.participant1_id == account_id) & (Conversation.participant2_id == other_account_id),
+                (Conversation.participant1_id == other_account_id) & (Conversation.participant2_id == account_id),
+            )
+        )
+        .order_by(Conversation.created_at.asc(), Conversation.conversation_id.asc())
+        .first()
+    )
+
+
 def _parse_inquiry_listing_id(conversation_type: str | None) -> int | None:
     if not conversation_type or ":" not in conversation_type:
         return None
@@ -539,7 +558,13 @@ def open_item_inquiry(
         )
 
     owner = _get_user_account(listing.seller_id, db)
-    conversation = _find_inquiry_conversation(listing=listing, account_id=payload.account_id, db=db)
+    conversation = _find_user_conversation(
+        account_id=payload.account_id,
+        other_account_id=listing.seller_id,
+        db=db,
+    )
+    if conversation is None:
+        conversation = _find_inquiry_conversation(listing=listing, account_id=payload.account_id, db=db)
     created = False
     if conversation is None:
         conversation = Conversation(
@@ -553,7 +578,7 @@ def open_item_inquiry(
 
     message_payload = None
     trimmed_message = (payload.message_text or "").strip()
-    if trimmed_message:
+    if created and trimmed_message:
         message, _, _, _ = create_message_record(
             db,
             conversation_id=conversation.conversation_id,
@@ -578,8 +603,9 @@ def open_item_inquiry(
     db.refresh(conversation)
     return jsonable_encoder(
         {
-            "message": "Inquiry conversation opened" if created else "Inquiry conversation found",
+            "message": "Inquiry conversation opened" if created else "An inquiry conversation is already active",
             "created": created,
+            "reused": not created,
             "conversation": _present_inquiry_conversation(
                 conversation,
                 listing=listing,
