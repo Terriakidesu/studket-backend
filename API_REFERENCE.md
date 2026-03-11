@@ -769,6 +769,8 @@ The listings router may return plain-string `detail` values such as:
 - `/api/v1/auth`
 - `/api/v1/listings`
 - `/api/v1/listing-media`
+- `/api/v1/transaction-qr`
+- `/api/v1/profile-pictures`
 
 ### CRUD routers
 
@@ -1533,6 +1535,7 @@ Exceptions:
 
 - `/api/v1/listings` is a custom router documented earlier.
 - `/api/v1/listing-media` is also a custom router and is documented separately below.
+- `/api/v1/transaction-qr` now has custom QR workflow endpoints documented below, while the legacy CRUD routes still exist.
 - `/api/v1/profile-pictures` is also a custom router and is documented separately below.
 
 User-facing CRUD-style routers currently mounted without the dashboard dependency:
@@ -1544,7 +1547,6 @@ User-facing CRUD-style routers currently mounted without the dashboard dependenc
 - `/api/v1/messages`
 - `/api/v1/transactions`
 - `/api/v1/reviews`
-- `/api/v1/transaction-qr`
 - `/api/v1/notifications`
 - `/api/v1/seller-reports`
 
@@ -1959,6 +1961,146 @@ Behavior notes:
 Possible errors:
 
 - `404 {"detail":"ListingMedia not found"}`
+
+### Transaction QR
+
+Base path:
+
+- `/api/v1/transaction-qr`
+
+Access:
+
+- User-facing route
+
+This resource now has workflow endpoints for generating and confirming transaction QR codes.
+The legacy CRUD endpoints still exist for compatibility, but the workflow routes below are the intended API.
+
+#### POST `/api/v1/transaction-qr/generate`
+
+Generates a new QR token for a transaction, or returns the active one if an unused non-expired QR already exists.
+
+Request body:
+
+```json
+{
+  "transaction_id": 14,
+  "account_id": 22,
+  "expires_in_minutes": 15
+}
+```
+
+Arguments:
+
+- `transaction_id` `integer`, required
+- `account_id` `integer`, required
+- `expires_in_minutes` `integer`, optional
+  - Default: `15`
+  - Range: `1` to `1440`
+
+Behavior notes:
+
+- The `account_id` must belong to a normal `user` account with a `UserProfile`.
+- Only the buyer or seller participating in the transaction can generate the QR.
+- Transactions already marked `completed` are rejected.
+- If there is already an active QR for the transaction, the API returns that row instead of creating another one.
+
+Response shape:
+
+```json
+{
+  "message": "Transaction QR generated",
+  "transaction": {
+    "transaction_id": 14,
+    "listing_id": 9,
+    "buyer_id": 22,
+    "seller_id": 7,
+    "quantity": 1,
+    "agreed_price": 250,
+    "transaction_status": "pending",
+    "completed_at": null
+  },
+  "transaction_qr": {
+    "transaction_qr_id": 3,
+    "transaction_id": 14,
+    "qr_token": "generated-token",
+    "expires_at": "2026-03-11T06:45:00Z",
+    "is_used": false,
+    "generated_by": 7,
+    "scanned_by": null,
+    "scanned_at": null,
+    "created_at": "2026-03-11T06:30:00Z"
+  }
+}
+```
+
+Possible errors:
+
+- `404 {"detail":{"error":"Transaction not found"}}`
+- `404 {"detail":{"error":"User account not found"}}`
+- `404 {"detail":{"error":"User profile not found"}}`
+- `400 {"detail":{"error":"Transaction is already completed"}}`
+- `403 {"detail":{"error":"Only transaction participants can generate a QR code"}}`
+
+#### GET `/api/v1/transaction-qr/token/{qr_token}`
+
+Fetches a QR token and its transaction metadata.
+
+Path arguments:
+
+- `qr_token` `string`, required
+
+Response fields:
+
+- `transaction`
+- `transaction_qr`
+- `is_expired` `boolean`
+
+Possible errors:
+
+- `404 {"detail":{"error":"Transaction QR not found"}}`
+- `404 {"detail":{"error":"Transaction not found"}}`
+
+#### POST `/api/v1/transaction-qr/confirm`
+
+Confirms a QR scan and completes the transaction.
+
+Request body:
+
+```json
+{
+  "qr_token": "generated-token",
+  "account_id": 22
+}
+```
+
+Arguments:
+
+- `qr_token` `string`, required
+- `account_id` `integer`, required
+
+Behavior notes:
+
+- The confirming `account_id` must belong to a normal `user` account with a `UserProfile`.
+- Only the buyer or seller participating in the transaction can confirm the QR.
+- The account that generated the QR cannot also confirm it.
+- On success:
+  - `transaction_qr.is_used` becomes `true`
+  - `transaction_qr.scanned_by` and `transaction_qr.scanned_at` are set
+  - `transaction.transaction_status` becomes `completed`
+  - `transaction.completed_at` is set
+  - both transaction participants receive a `transaction_completed` notification
+
+Possible errors:
+
+- `404 {"detail":{"error":"Transaction QR not found"}}`
+- `404 {"detail":{"error":"Transaction not found"}}`
+- `404 {"detail":{"error":"User account not found"}}`
+- `404 {"detail":{"error":"User profile not found"}}`
+- `400 {"detail":{"error":"Transaction is already completed"}}`
+- `400 {"detail":{"error":"Transaction QR has already been used"}}`
+- `400 {"detail":{"error":"Transaction QR has expired"}}`
+- `400 {"detail":{"error":"The QR generator cannot confirm their own QR"}}`
+- `403 {"detail":{"error":"Only transaction participants can confirm this QR"}}`
 
 ### Tags
 
