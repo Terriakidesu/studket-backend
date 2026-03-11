@@ -767,11 +767,17 @@ The listings router may return plain-string `detail` values such as:
 
 ## Endpoint Inventory
 
+### Human-readable docs
+
+- HTML API reference: `/docs`
+- Swagger UI: `/swagger`
+
 ### Custom routers
 
 - `/api/v1/auth`
 - `/api/v1/listings`
 - `/api/v1/listing-media`
+- `/api/v1/transactions`
 - `/api/v1/transaction-qr`
 - `/api/v1/profile-pictures`
 
@@ -1821,6 +1827,7 @@ Exceptions:
 
 - `/api/v1/listings` is a custom router documented earlier.
 - `/api/v1/listing-media` is also a custom router and is documented separately below.
+- `/api/v1/transactions` now has a custom cancellation workflow endpoint documented below, while the legacy CRUD routes still exist.
 - `/api/v1/transaction-qr` now has custom QR workflow endpoints documented below, while the legacy CRUD routes still exist.
 - `/api/v1/profile-pictures` is also a custom router and is documented separately below.
 
@@ -1831,7 +1838,6 @@ User-facing CRUD-style routers currently mounted without the dashboard dependenc
 - `/api/v1/listing-tags`
 - `/api/v1/conversations`
 - `/api/v1/messages`
-- `/api/v1/transactions`
 - `/api/v1/reviews`
 - `/api/v1/notifications`
 - `/api/v1/seller-reports`
@@ -2263,15 +2269,14 @@ The legacy CRUD endpoints still exist for compatibility, but the workflow routes
 
 #### POST `/api/v1/transaction-qr/generate`
 
-Generates a new QR token for a transaction, or returns the active one if an unused non-expired QR already exists.
+Generates a new QR token for a transaction, or returns the active one if an unused QR already exists.
 
 Request body:
 
 ```json
 {
   "transaction_id": 14,
-  "account_id": 22,
-  "expires_in_minutes": 15
+  "account_id": 22
 }
 ```
 
@@ -2279,9 +2284,6 @@ Arguments:
 
 - `transaction_id` `integer`, required
 - `account_id` `integer`, required
-- `expires_in_minutes` `integer`, optional
-  - Default: `15`
-  - Range: `1` to `1440`
 
 Behavior notes:
 
@@ -2289,6 +2291,8 @@ Behavior notes:
 - Only the buyer or seller participating in the transaction can generate the QR.
 - Transactions already marked `completed` are rejected.
 - If there is already an active QR for the transaction, the API returns that row instead of creating another one.
+- Generated transaction QR codes do not expire automatically.
+- `expires_at` is now `null` for QR codes created by this workflow.
 
 Response shape:
 
@@ -2309,7 +2313,7 @@ Response shape:
     "transaction_qr_id": 3,
     "transaction_id": 14,
     "qr_token": "generated-token",
-    "expires_at": "2026-03-11T06:45:00Z",
+    "expires_at": null,
     "is_used": false,
     "generated_by": 7,
     "scanned_by": null,
@@ -2340,6 +2344,7 @@ Response fields:
 - `transaction`
 - `transaction_qr`
 - `is_expired` `boolean`
+  - Always `false` for the current no-expiration QR flow
 
 Possible errors:
 
@@ -2384,7 +2389,6 @@ Possible errors:
 - `404 {"detail":{"error":"User profile not found"}}`
 - `400 {"detail":{"error":"Transaction is already completed"}}`
 - `400 {"detail":{"error":"Transaction QR has already been used"}}`
-- `400 {"detail":{"error":"Transaction QR has expired"}}`
 - `400 {"detail":{"error":"The QR generator cannot confirm their own QR"}}`
 - `403 {"detail":{"error":"Only transaction participants can confirm this QR"}}`
 
@@ -2591,6 +2595,77 @@ Fields:
 Base path:
 
 - `/api/v1/transactions`
+
+Access:
+
+- User-facing route
+
+This resource now has a custom cancellation workflow endpoint.
+The legacy CRUD endpoints still exist for compatibility.
+
+#### POST `/api/v1/transactions/{item_id}/cancel`
+
+Cancels an in-progress transaction as the seller.
+
+Request body:
+
+```json
+{
+  "account_id": 7,
+  "reason": "Buyer is no longer available"
+}
+```
+
+Path arguments:
+
+- `item_id` `integer`, required
+  - Mapped to `Transaction.transaction_id`
+
+Arguments:
+
+- `account_id` `integer`, required
+- `reason` `string | null`, optional
+
+Behavior notes:
+
+- the caller must belong to a normal `user` account with a `UserProfile`
+- only the seller on the transaction can cancel it
+- completed transactions cannot be cancelled
+- already-cancelled transactions are rejected
+- on success:
+  - `transaction.transaction_status` becomes `cancelled`
+  - `transaction.completed_at` becomes `null`
+  - any unused QR rows for that transaction are invalidated by marking them used
+  - the other participant receives a `transaction_cancelled` notification
+
+Response shape:
+
+```json
+{
+  "message": "Transaction cancelled",
+  "transaction": {
+    "transaction_id": 14,
+    "listing_id": 9,
+    "buyer_id": 22,
+    "seller_id": 7,
+    "quantity": 1,
+    "agreed_price": 250,
+    "transaction_status": "cancelled",
+    "completed_at": null
+  }
+}
+```
+
+Possible errors:
+
+- `404 {"detail":{"error":"Transaction not found"}}`
+- `404 {"detail":{"error":"User account not found"}}`
+- `404 {"detail":{"error":"User profile not found"}}`
+- `403 {"detail":{"error":"Only the seller can cancel this transaction"}}`
+- `400 {"detail":{"error":"Completed transactions cannot be cancelled"}}`
+- `400 {"detail":{"error":"Transaction is already cancelled"}}`
+
+#### Legacy transaction CRUD fields
 
 Primary key:
 

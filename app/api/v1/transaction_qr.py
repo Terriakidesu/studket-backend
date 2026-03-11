@@ -1,8 +1,8 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from secrets import token_urlsafe
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.v1.common import create_crud_router
@@ -22,7 +22,6 @@ crud_router = create_crud_router(
 class GenerateTransactionQrPayload(BaseModel):
     transaction_id: int
     account_id: int
-    expires_in_minutes: int = Field(default=15, ge=1, le=1440)
 
 
 class ConfirmTransactionQrPayload(BaseModel):
@@ -114,7 +113,6 @@ def generate_transaction_qr(
         .filter(
             TransactionQR.transaction_id == transaction.transaction_id,
             TransactionQR.is_used.is_(False),
-            TransactionQR.expires_at > _utcnow(),
         )
         .order_by(TransactionQR.created_at.desc(), TransactionQR.transaction_qr_id.desc())
         .first()
@@ -129,7 +127,7 @@ def generate_transaction_qr(
     transaction_qr = TransactionQR(
         transaction_id=transaction.transaction_id,
         qr_token=token_urlsafe(24),
-        expires_at=_utcnow() + timedelta(minutes=payload.expires_in_minutes),
+        expires_at=None,
         is_used=False,
         generated_by=payload.account_id,
     )
@@ -161,7 +159,7 @@ def get_transaction_qr_by_token(
     return {
         "transaction": _serialize_transaction(transaction),
         "transaction_qr": _serialize_qr(transaction_qr),
-        "is_expired": bool(transaction_qr.expires_at and transaction_qr.expires_at <= _utcnow()),
+        "is_expired": False,
     }
 
 
@@ -184,8 +182,6 @@ def confirm_transaction_qr(
 
     if transaction_qr.is_used:
         raise HTTPException(status_code=400, detail={"error": "Transaction QR has already been used"})
-    if transaction_qr.expires_at and transaction_qr.expires_at <= _utcnow():
-        raise HTTPException(status_code=400, detail={"error": "Transaction QR has expired"})
 
     participant_ids = _participant_ids(transaction)
     if payload.account_id not in participant_ids:
