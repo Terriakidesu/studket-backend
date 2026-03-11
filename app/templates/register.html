@@ -271,6 +271,7 @@
 
 {% block content %}
 <main class="auth-shell">
+    {% set selected_role = active_role if active_role in ['management', 'superadmin'] else 'management' %}
     <section class="form-wrap">
         <a class="brand" href="/">
             <span class="brand-mark"><i class="fa-solid fa-shield-halved"></i></span>
@@ -284,12 +285,12 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <div class="role-picker">
                 <div class="role-track">
-                    <label class="role-option {% if active_role == 'management' %}active{% endif %}" data-role-card="management">
-                        <input type="radio" name="account_type" value="management" {% if active_role == "management" %}checked{% endif %}>
+                    <label class="role-option {% if selected_role == 'management' %}active{% endif %}" data-role-card="management">
+                        <input type="radio" name="account_type" value="management" {% if selected_role == "management" %}checked{% endif %}>
                         <span>Management</span>
                     </label>
-                    <label class="role-option {% if active_role == 'superadmin' %}active{% endif %}" data-role-card="superadmin">
-                        <input type="radio" name="account_type" value="superadmin" {% if active_role == "superadmin" %}checked{% endif %}>
+                    <label class="role-option {% if selected_role == 'superadmin' %}active{% endif %}" data-role-card="superadmin">
+                        <input type="radio" name="account_type" value="superadmin" {% if selected_role == "superadmin" %}checked{% endif %}>
                         <span>Superadmin</span>
                     </label>
                 </div>
@@ -372,9 +373,15 @@
 <script>
     const roleCards = document.querySelectorAll("[data-role-card]");
     const superadminFields = document.getElementById("superadminFields");
+    const managementInput = document.querySelector("input[name='account_type'][value='management']");
 
     function syncRoleState() {
-        const selected = document.querySelector("input[name='account_type']:checked")?.value;
+        let selectedInput = document.querySelector("input[name='account_type']:checked");
+        if (!selectedInput && managementInput) {
+            managementInput.checked = true;
+            selectedInput = managementInput;
+        }
+        const selected = selectedInput?.value;
         roleCards.forEach((card) => {
             const input = card.querySelector("input");
             card.classList.toggle("active", input.checked);
@@ -385,8 +392,12 @@
     }
 
     roleCards.forEach((card) => {
-        card.addEventListener("click", syncRoleState);
-        card.querySelector("input").addEventListener("change", syncRoleState);
+        const input = card.querySelector("input");
+        card.addEventListener("click", () => {
+            input.checked = true;
+            syncRoleState();
+        });
+        input.addEventListener("change", syncRoleState);
     });
 
     syncRoleState();
