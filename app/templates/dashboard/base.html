@@ -52,7 +52,7 @@
         left: 0;
         width: 280px;
         height: 100vh;
-        padding: 20px 18px;
+        padding: 16px 14px;
         display: flex;
         flex-direction: column;
         overflow-y: auto;
@@ -69,22 +69,22 @@
     }
     .app-shell.sidebar-collapsed .sidebar {
         width: 92px;
-        padding: 20px 12px;
+        padding: 16px 10px;
     }
     .sidebar-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        margin-bottom: 24px;
-        min-height: 48px;
+        margin-bottom: 16px;
+        min-height: 42px;
     }
     .sidebar-toggle {
-        width: 42px;
-        min-width: 42px;
-        height: 42px;
+        width: 38px;
+        min-width: 38px;
+        height: 38px;
         padding: 0;
-        border-radius: 14px;
+        border-radius: 12px;
         border: 1px solid rgba(147, 197, 253, 0.12);
         background: rgba(255, 255, 255, 0.06);
         color: #dbeafe;
@@ -105,12 +105,12 @@
         transition: opacity .16s ease, flex-basis .16s ease, max-width .16s ease;
     }
     .brand-mark {
-        width: 42px;
-        height: 42px;
+        width: 38px;
+        height: 38px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        border-radius: 14px;
+        border-radius: 12px;
         background: rgba(255, 255, 255, 0.10);
         color: #bfdbfe;
         box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
@@ -147,23 +147,23 @@
         gap: 0;
     }
     .app-shell.sidebar-collapsed .sidebar-toggle {
-        width: 48px;
-        min-width: 48px;
-        height: 48px;
-        flex: 0 0 48px;
-        border-radius: 16px;
+        width: 42px;
+        min-width: 42px;
+        height: 42px;
+        flex: 0 0 42px;
+        border-radius: 14px;
         margin: 0 auto;
     }
     .app-shell:not(.sidebar-collapsed) .sidebar-toggle {
         margin-left: auto;
     }
-    .sidebar-group { margin-bottom: 24px; }
+    .sidebar-group { margin-bottom: 16px; }
     .sidebar-title {
-        margin: 0 0 10px; font-size: .75rem; text-transform: uppercase;
+        margin: 0 0 8px; font-size: .72rem; text-transform: uppercase;
         letter-spacing: .12em; color: var(--sidebar-muted);
         transition: opacity .16s ease;
     }
-    .sidebar-nav { display: grid; gap: 8px; }
+    .sidebar-nav { display: grid; gap: 6px; }
     .sidebar-link {
         position: relative;
         display: flex;
@@ -171,11 +171,12 @@
         gap: 10px;
         width: 100%;
         min-width: 0;
-        padding: 12px 14px;
-        border-radius: 16px;
+        padding: 10px 12px;
+        border-radius: 14px;
         color: #e2e8f0;
         text-decoration: none;
         font-weight: 600;
+        font-size: .95rem;
         background: rgba(255,255,255,0.03);
         border: 1px solid transparent;
         transition: background-color .18s ease, border-color .18s ease, transform .18s ease;
@@ -234,7 +235,7 @@
         overflow: hidden;
     }
     .app-shell.sidebar-collapsed .sidebar-group {
-        margin-bottom: 18px;
+        margin-bottom: 14px;
     }
     .app-shell.sidebar-collapsed .sidebar-title {
         opacity: 0;
@@ -244,7 +245,7 @@
     }
     .app-shell.sidebar-collapsed .sidebar-link {
         justify-content: center;
-        padding: 12px;
+        padding: 10px;
     }
     .app-shell.sidebar-collapsed .sidebar-link i {
         width: 100%;
@@ -470,7 +471,7 @@
         }
         .app-shell.sidebar-collapsed .sidebar {
             width: auto;
-            padding: 20px 18px;
+            padding: 16px 14px;
         }
         .app-shell.sidebar-collapsed .brand {
             justify-content: flex-start;
@@ -486,7 +487,7 @@
         }
         .app-shell.sidebar-collapsed .sidebar-link {
             justify-content: flex-start;
-            padding: 12px 14px;
+            padding: 10px 12px;
         }
     }
     @media (max-width: 1100px) {
