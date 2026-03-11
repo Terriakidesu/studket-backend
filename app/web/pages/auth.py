@@ -235,6 +235,26 @@ def _emit_user_notification(account_id: int, payload: dict) -> None:
     )
 
 
+def _pending_verification_total(db: Session) -> int:
+    return (
+        db.query(func.count(SellerVerificationRequest.request_id))
+        .filter(SellerVerificationRequest.status == "pending")
+        .scalar()
+        or 0
+    )
+
+
+def _emit_verification_summary_update(db: Session) -> None:
+    _dispatch_management_event(
+        {
+            "type": "management.summary",
+            "summary": {
+                "pending_verifications": _pending_verification_total(db),
+            },
+        }
+    )
+
+
 def _build_dashboard_context(request: Request, db: Session) -> dict:
     account = _require_web_session(request)
     csrf_token = _ensure_csrf_token(request)
@@ -325,6 +345,7 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
 
     participant1 = aliased(Account)
     participant2 = aliased(Account)
+    message_sender = aliased(Account)
     conversations = (
         db.query(
             Conversation.conversation_id,
@@ -336,8 +357,24 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
             participant2.account_type.label("participant2_type"),
             func.max(Message.sent_at).label("last_message_at"),
             func.count(Message.message_id).label("message_count"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                Message.is_read.is_(False),
+                                message_sender.account_type == "user",
+                            ),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("unread_count"),
         )
         .outerjoin(Message, Message.conversation_id == Conversation.conversation_id)
+        .outerjoin(message_sender, message_sender.account_id == Message.sender_id)
         .outerjoin(participant1, participant1.account_id == Conversation.participant1_id)
         .outerjoin(participant2, participant2.account_id == Conversation.participant2_id)
         .filter(
@@ -494,7 +531,32 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         .limit(20)
         .all()
     )
-    conversation_count = db.query(func.count(Conversation.conversation_id)).scalar() or 0
+    count_participant1 = aliased(Account)
+    count_participant2 = aliased(Account)
+    message_count_sender = aliased(Account)
+    conversation_count = (
+        db.query(func.count(Message.message_id))
+        .join(Conversation, Conversation.conversation_id == Message.conversation_id)
+        .join(message_count_sender, message_count_sender.account_id == Message.sender_id)
+        .join(count_participant1, count_participant1.account_id == Conversation.participant1_id)
+        .join(count_participant2, count_participant2.account_id == Conversation.participant2_id)
+        .filter(
+            Message.is_read.is_(False),
+            message_count_sender.account_type == "user",
+            or_(
+                and_(
+                    count_participant1.account_type.in_(WEB_ALLOWED_ACCOUNT_TYPES),
+                    count_participant2.account_type == "user",
+                ),
+                and_(
+                    count_participant2.account_type.in_(WEB_ALLOWED_ACCOUNT_TYPES),
+                    count_participant1.account_type == "user",
+                ),
+            ),
+        )
+        .scalar()
+        or 0
+    )
     management_users = (
         db.query(
             Account.account_id,
@@ -512,7 +574,7 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         .all()
     )
     verification_chart = {
-        "pending": sum(1 for row in verification_requests if row.status == "pending"),
+        "pending": _pending_verification_total(db),
         "approved": sum(1 for row in verification_requests if row.status == "approved"),
         "rejected": sum(1 for row in verification_requests if row.status == "rejected"),
     }
@@ -1274,7 +1336,7 @@ def dashboard_messages(
             )
             .outerjoin(Account, Account.account_id == Message.sender_id)
             .filter(Message.conversation_id == selected_conversation.conversation_id)
-            .order_by(Message.sent_at.asc(), Message.message_id.asc())
+            .order_by(Message.message_id.asc(), Message.sent_at.asc())
             .all()
         )
 
@@ -1624,6 +1686,7 @@ def approve_verification(
     db.commit()
     if notification_payload is not None:
         _emit_user_notification(verification_request.user_id, notification_payload)
+    _emit_verification_summary_update(db)
     return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -1684,6 +1747,7 @@ def reject_verification(
     db.commit()
     if notification_payload is not None:
         _emit_user_notification(verification_request.user_id, notification_payload)
+    _emit_verification_summary_update(db)
     return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
 

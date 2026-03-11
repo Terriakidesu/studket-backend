@@ -1,8 +1,19 @@
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.db.models import Account, Conversation, Message, Notification
+
+
+def _serialize_utc_datetime(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    else:
+        value = value.astimezone(timezone.utc)
+    return value.isoformat().replace("+00:00", "Z")
 
 
 def serialize_message(message: Message, *, sender_username: str | None = None) -> dict[str, Any]:
@@ -12,7 +23,7 @@ def serialize_message(message: Message, *, sender_username: str | None = None) -
         "sender_id": message.sender_id,
         "sender_username": sender_username,
         "message_text": message.message_text,
-        "sent_at": message.sent_at.isoformat() if message.sent_at else None,
+        "sent_at": _serialize_utc_datetime(message.sent_at),
         "is_read": bool(message.is_read),
     }
 
@@ -27,8 +38,8 @@ def serialize_notification(notification: Notification) -> dict[str, Any]:
         "related_entity_type": notification.related_entity_type,
         "related_entity_id": notification.related_entity_id,
         "is_read": bool(notification.is_read),
-        "read_at": notification.read_at.isoformat() if notification.read_at else None,
-        "created_at": notification.created_at.isoformat() if notification.created_at else None,
+        "read_at": _serialize_utc_datetime(notification.read_at),
+        "created_at": _serialize_utc_datetime(notification.created_at),
     }
 
 
@@ -77,6 +88,7 @@ def create_message_record(
         conversation_id=conversation_id,
         sender_id=sender_id,
         message_text=trimmed_message,
+        sent_at=datetime.now(timezone.utc).replace(tzinfo=None),
         is_read=False,
     )
     db.add(message)

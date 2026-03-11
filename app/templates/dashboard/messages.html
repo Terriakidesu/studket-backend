@@ -1,6 +1,32 @@
 {% extends "dashboard/base.html" %}
 
 {% block dashboard_content %}
+<style>
+    .chat-composer-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: end;
+    }
+    .chat-composer-field {
+        min-width: 0;
+    }
+    .chat-composer-field textarea {
+        min-height: 56px;
+    }
+    .chat-composer-submit {
+        align-self: end;
+        white-space: nowrap;
+    }
+    @media (max-width: 720px) {
+        .chat-composer-row {
+            grid-template-columns: 1fr;
+        }
+        .chat-composer-submit {
+            width: 100%;
+        }
+    }
+</style>
 <section
     class="chat-layout"
     data-chat-page
@@ -19,16 +45,23 @@
                 href="/dashboard/messages?conversation_id={{ conversation.conversation_id }}"
                 data-chat-card
                 data-conversation-id="{{ conversation.conversation_id }}"
+                data-unread-count="{{ conversation.unread_count or 0 }}"
             >
                 <div class="chat-header">
                     <div>
                         <strong>#{{ conversation.conversation_id }}</strong><br>
                         <span class="muted">{{ conversation.participant1_username or "unknown" }} and {{ conversation.participant2_username or "unknown" }}</span>
                     </div>
-                    <span class="chat-meta" data-chat-last-message>{{ conversation.last_message_at or conversation.created_at or "-" }}</span>
+                    <span
+                        class="chat-meta"
+                        data-chat-last-message
+                        data-chat-last-message-ts="{% if conversation.last_message_at %}{{ conversation.last_message_at.isoformat() ~ 'Z' }}{% elif conversation.created_at %}{{ conversation.created_at.isoformat() ~ 'Z' }}{% else %}{% endif %}"
+                    >
+                        {{ (conversation.last_message_at.isoformat() ~ 'Z') if conversation.last_message_at else ((conversation.created_at.isoformat() ~ 'Z') if conversation.created_at else "-") }}
+                    </span>
                 </div>
                 <div class="chat-meta" data-chat-count>
-                    {{ conversation.message_count }} messages
+                    {{ conversation.unread_count or 0 }} unread
                     {% if conversation.conversation_type %}
                     · {{ conversation.conversation_type }}
                     {% endif %}
@@ -44,13 +77,19 @@
         {% if selected_conversation %}
         <h2><i class="fa-solid fa-comments" style="margin-right:8px;"></i>Conversation #{{ selected_conversation.conversation_id }}</h2>
         <p class="lead">{{ selected_conversation.participant1_username or "unknown" }} and {{ selected_conversation.participant2_username or "unknown" }}</p>
+        <div class="muted" data-typing-indicator hidden>Typing...</div>
         <div class="message-stack" data-message-stack>
             {% for message in conversation_messages %}
-            <div class="message-row {% if message.sender_id == account.account_id %}outbound{% endif %}">
+            <div
+                class="message-row {% if message.sender_id == account.account_id %}outbound{% endif %}"
+                data-message-row
+                data-message-id="{{ message.message_id }}"
+                data-sent-at="{{ (message.sent_at.isoformat() ~ 'Z') if message.sent_at else '' }}"
+            >
                 <article class="message-bubble">
                     <div class="message-author">{{ message.sender_username or "unknown sender" }}</div>
                     <div>{{ message.message_text or "" }}</div>
-                    <div class="message-time">{{ message.sent_at or "-" }}</div>
+                    <div class="message-time" data-message-time>{{ (message.sent_at.isoformat() ~ 'Z') if message.sent_at else "-" }}</div>
                 </article>
             </div>
             {% else %}
@@ -59,12 +98,12 @@
         </div>
         <form class="composer" method="post" action="/dashboard/messages/{{ selected_conversation.conversation_id }}/send" data-chat-composer>
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <div>
-                <label class="muted" for="message_text">Reply</label>
-                <textarea id="message_text" name="message_text" placeholder="Write a dashboard reply..." required></textarea>
-            </div>
-            <div class="row-actions">
-                <button type="submit" class="primary"><i class="fa-solid fa-paper-plane" style="margin-right:6px;"></i>Send message</button>
+            <label class="muted" for="message_text">Reply</label>
+            <div class="chat-composer-row">
+                <div class="chat-composer-field">
+                    <textarea id="message_text" name="message_text" placeholder="Write a dashboard reply..." required></textarea>
+                </div>
+                <button type="submit" class="primary chat-composer-submit"><i class="fa-solid fa-paper-plane" style="margin-right:6px;"></i>Send message</button>
             </div>
         </form>
         {% else %}
@@ -88,9 +127,13 @@
         const messageStack = page.querySelector("[data-message-stack]");
         const composer = page.querySelector("[data-chat-composer]");
         const textarea = composer?.querySelector("textarea[name='message_text']");
+        const typingIndicator = page.querySelector("[data-typing-indicator]");
         const cards = Array.from(page.querySelectorAll("[data-chat-card]"));
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
         const socket = new WebSocket(`${protocol}://${window.location.host}/ws/management`);
+        let isTyping = false;
+        let typingTimeoutId = null;
+        let remoteTypingTimeoutId = null;
 
         const escapeHtml = (value) => {
             const div = document.createElement("div");
@@ -103,42 +146,160 @@
             messageStack.scrollTop = messageStack.scrollHeight;
         };
 
+        const scrollMessagesToBottomDeferred = () => {
+            if (!messageStack) return;
+            window.requestAnimationFrame(() => {
+                scrollMessagesToBottom();
+                window.requestAnimationFrame(scrollMessagesToBottom);
+            });
+        };
+
+        const setTypingIndicator = (username, visible) => {
+            if (!typingIndicator) return;
+            if (!visible) {
+                typingIndicator.hidden = true;
+                typingIndicator.textContent = "Typing...";
+                return;
+            }
+            typingIndicator.hidden = false;
+            typingIndicator.textContent = username ? `${username} is typing...` : "Typing...";
+        };
+
+        const sendTypingStatus = (nextIsTyping) => {
+            if (socket.readyState !== WebSocket.OPEN || !conversationId) return;
+            if (isTyping === nextIsTyping) return;
+            isTyping = nextIsTyping;
+            socket.send(JSON.stringify({
+                action: "typing_status",
+                conversation_id: conversationId,
+                is_typing: nextIsTyping,
+            }));
+        };
+
+        const scheduleStopTyping = () => {
+            window.clearTimeout(typingTimeoutId);
+            typingTimeoutId = window.setTimeout(() => {
+                sendTypingStatus(false);
+            }, 1200);
+        };
+
+        const normalizeSentAt = (value) => {
+            const normalized = String(value || "").trim().replace(" ", "T");
+            if (!normalized) return "";
+            if (/Z$/i.test(normalized) || /[+-]\d{2}:\d{2}$/.test(normalized)) {
+                return normalized;
+            }
+            return `${normalized}Z`;
+        };
+
+        const formatLocalDateTime = (value) => {
+            const normalized = normalizeSentAt(value);
+            if (!normalized) return "-";
+
+            const parsed = new Date(normalized);
+            if (Number.isNaN(parsed.getTime())) return normalized;
+
+            return new Intl.DateTimeFormat(undefined, {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+            }).format(parsed);
+        };
+
+        const parseMessageOrder = (message) => ({
+            messageId: Number(message.message_id || 0),
+            sentAt: normalizeSentAt(message.sent_at),
+        });
+
+        const compareMessageOrder = (left, right) => {
+            if (left.messageId !== right.messageId) {
+                return left.messageId - right.messageId;
+            }
+            return left.sentAt.localeCompare(right.sentAt);
+        };
+
+        const reorderMessageRows = () => {
+            if (!messageStack) return;
+            const rows = Array.from(messageStack.querySelectorAll("[data-message-row]"));
+            rows
+                .sort((left, right) => {
+                    const leftOrder = parseMessageOrder({
+                        sent_at: left.dataset.sentAt || "",
+                        message_id: left.dataset.messageId || 0,
+                    });
+                    const rightOrder = parseMessageOrder({
+                        sent_at: right.dataset.sentAt || "",
+                        message_id: right.dataset.messageId || 0,
+                    });
+                    return compareMessageOrder(leftOrder, rightOrder);
+                })
+                .forEach((row) => messageStack.appendChild(row));
+        };
+
+        const refreshDisplayedTimes = () => {
+            page.querySelectorAll("[data-message-time]").forEach((node) => {
+                const row = node.closest("[data-message-row]");
+                const sentAt = row?.dataset.sentAt || "";
+                node.textContent = formatLocalDateTime(sentAt);
+            });
+            page.querySelectorAll("[data-chat-last-message]").forEach((node) => {
+                const sentAt = node.dataset.chatLastMessageTs || "";
+                node.textContent = sentAt ? formatLocalDateTime(sentAt) : "-";
+            });
+        };
+
         const updateConversationCard = (incomingConversationId, sentAt) => {
             const card = cards.find((item) => Number(item.dataset.conversationId) === incomingConversationId);
             if (!card) return;
 
             const countNode = card.querySelector("[data-chat-count]");
             if (countNode) {
-                const currentCount = Number((countNode.textContent || "").match(/\d+/)?.[0] || 0);
+                const isUnreadIncoming = incomingConversationId !== conversationId;
+                const currentCount = Number(card.dataset.unreadCount || 0);
+                const nextCount = isUnreadIncoming ? currentCount + 1 : currentCount;
+                card.dataset.unreadCount = String(nextCount);
                 const suffix = countNode.textContent.includes("·")
                     ? ` · ${countNode.textContent.split("·").slice(1).join("·").trim()}`
                     : "";
-                countNode.textContent = `${currentCount + 1} messages${suffix}`;
+                countNode.textContent = `${nextCount} unread${suffix}`;
             }
 
             const lastMessageNode = card.querySelector("[data-chat-last-message]");
             if (lastMessageNode) {
-                lastMessageNode.textContent = sentAt || "just now";
+                lastMessageNode.dataset.chatLastMessageTs = sentAt || "";
+                lastMessageNode.textContent = sentAt ? formatLocalDateTime(sentAt) : "just now";
             }
         };
 
-        const appendMessage = (message) => {
+        const upsertMessage = (message) => {
             if (!messageStack || Number(message.conversation_id) !== conversationId) return;
 
             const emptyState = messageStack.querySelector(".detail-card");
             if (emptyState) emptyState.remove();
 
+            const existingRow = messageStack.querySelector(`[data-message-id="${Number(message.message_id || 0)}"]`);
+            if (existingRow) return;
+
             const row = document.createElement("div");
             row.className = `message-row${Number(message.sender_id) === accountId ? " outbound" : ""}`;
+            row.dataset.messageRow = "true";
+            row.dataset.messageId = String(Number(message.message_id || 0));
+            row.dataset.sentAt = message.sent_at || "";
             row.innerHTML = `
                 <article class="message-bubble">
                     <div class="message-author">${escapeHtml(message.sender_username || "unknown sender")}</div>
                     <div>${escapeHtml(message.message_text || "")}</div>
-                    <div class="message-time">${escapeHtml(message.sent_at || "just now")}</div>
+                    <div class="message-time" data-message-time>${escapeHtml(formatLocalDateTime(message.sent_at || ""))}</div>
                 </article>
             `;
+
+            const incomingOrder = parseMessageOrder(message);
             messageStack.appendChild(row);
-            scrollMessagesToBottom();
+            reorderMessageRows();
+            scrollMessagesToBottomDeferred();
         };
 
         socket.addEventListener("open", () => {
@@ -159,17 +320,59 @@
             }
 
             if (payload.type === "bootstrap" || payload.type === "chat.subscribed") {
-                scrollMessagesToBottom();
+                scrollMessagesToBottomDeferred();
+                return;
+            }
+
+            if (payload.type === "chat.typing" && Number(payload.conversation_id || 0) === conversationId) {
+                if (Number(payload.account_id || 0) === accountId) return;
+                window.clearTimeout(remoteTypingTimeoutId);
+                if (payload.is_typing) {
+                    setTypingIndicator(payload.username || "", true);
+                    remoteTypingTimeoutId = window.setTimeout(() => {
+                        setTypingIndicator("", false);
+                    }, 1600);
+                } else {
+                    setTypingIndicator("", false);
+                }
                 return;
             }
 
             if (payload.type !== "chat.message" || !payload.message) return;
 
-            appendMessage(payload.message);
-            updateConversationCard(Number(payload.conversation_id || 0), payload.message.sent_at);
+            upsertMessage(payload.message);
+            if (Number(payload.message.sender_id || 0) !== accountId) {
+                window.clearTimeout(remoteTypingTimeoutId);
+                setTypingIndicator("", false);
+            }
+            if (Number(payload.message.sender_id || 0) !== accountId) {
+                updateConversationCard(Number(payload.conversation_id || 0), payload.message.sent_at);
+            }
         });
 
         if (composer && textarea) {
+            textarea.addEventListener("input", () => {
+                const hasText = Boolean(textarea.value.trim());
+                if (!hasText) {
+                    window.clearTimeout(typingTimeoutId);
+                    sendTypingStatus(false);
+                    return;
+                }
+                sendTypingStatus(true);
+                scheduleStopTyping();
+            });
+
+            textarea.addEventListener("blur", () => {
+                window.clearTimeout(typingTimeoutId);
+                sendTypingStatus(false);
+            });
+
+            textarea.addEventListener("keydown", (event) => {
+                if (event.key !== "Enter" || event.shiftKey) return;
+                event.preventDefault();
+                composer.requestSubmit();
+            });
+
             composer.addEventListener("submit", (event) => {
                 if (socket.readyState !== WebSocket.OPEN || !conversationId) return;
 
@@ -177,6 +380,8 @@
                 if (!messageText) return;
 
                 event.preventDefault();
+                window.clearTimeout(typingTimeoutId);
+                sendTypingStatus(false);
                 socket.send(JSON.stringify({
                     action: "send_message",
                     conversation_id: conversationId,
@@ -186,7 +391,15 @@
             });
         }
 
-        scrollMessagesToBottom();
+        window.addEventListener("beforeunload", () => {
+            window.clearTimeout(typingTimeoutId);
+            sendTypingStatus(false);
+        });
+
+        reorderMessageRows();
+        refreshDisplayedTimes();
+        scrollMessagesToBottomDeferred();
+        window.addEventListener("load", scrollMessagesToBottomDeferred, { once: true });
     })();
 </script>
 {% endblock %}

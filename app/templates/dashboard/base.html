@@ -647,7 +647,7 @@
                     <a class="sidebar-link {% if active_page == 'user_management' %}active{% endif %}" href="/dashboard/users" title="User Management"><i class="fa-solid fa-users-gear"></i><span class="sidebar-text">User Management</span></a>
                     <a class="sidebar-link {% if active_page == 'search' %}active{% endif %}" href="/dashboard/search" title="Search"><i class="fa-solid fa-magnifying-glass"></i><span class="sidebar-text">Search</span></a>
                     <a class="sidebar-link {% if active_page == 'messages' %}active{% endif %}" href="/dashboard/messages" title="Messages"><i class="fa-regular fa-envelope"></i><span class="sidebar-text">Messages</span>{% if conversation_count %}<span class="sidebar-badge">{{ conversation_count }}</span>{% endif %}</a>
-                    <a class="sidebar-link {% if active_page == 'verification' %}active{% endif %}" href="/dashboard/verifications" title="Seller Verification"><i class="fa-solid fa-user-check"></i><span class="sidebar-text">Seller Verification</span>{% if pending_verification_count %}<span class="sidebar-badge">{{ pending_verification_count }}</span>{% endif %}</a>
+                    <a class="sidebar-link {% if active_page == 'verification' %}active{% endif %}" href="/dashboard/verifications" title="Seller Verification" data-sidebar-link="verification"><i class="fa-solid fa-user-check"></i><span class="sidebar-text">Seller Verification</span>{% if pending_verification_count %}<span class="sidebar-badge" data-sidebar-badge="verification">{{ pending_verification_count }}</span>{% endif %}</a>
                     <a class="sidebar-link {% if active_page == 'moderation' %}active{% endif %}" href="/dashboard/moderation" title="Trust and Safety"><i class="fa-solid fa-gavel"></i><span class="sidebar-text">Trust and Safety</span>{% if pending_moderation_count %}<span class="sidebar-badge">{{ pending_moderation_count }}</span>{% endif %}</a>
                 </nav>
             </div>
@@ -735,6 +735,51 @@
             const collapsed = !appShell.classList.contains("sidebar-collapsed");
             sync(collapsed);
             window.localStorage.setItem(storageKey, collapsed ? "1" : "0");
+        });
+    })();
+
+    (() => {
+        const verificationLink = document.querySelector('[data-sidebar-link="verification"]');
+        if (!verificationLink) return;
+
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        const socket = new WebSocket(`${protocol}://${window.location.host}/ws/management`);
+
+        const setSidebarBadgeCount = (key, count) => {
+            const link = document.querySelector(`[data-sidebar-link="${key}"]`);
+            if (!link) return;
+
+            let badge = link.querySelector(`[data-sidebar-badge="${key}"]`);
+            if (!count) {
+                badge?.remove();
+                return;
+            }
+
+            if (!badge) {
+                badge = document.createElement("span");
+                badge.className = "sidebar-badge";
+                badge.dataset.sidebarBadge = key;
+                link.appendChild(badge);
+            }
+            badge.textContent = String(count);
+        };
+
+        socket.addEventListener("message", (event) => {
+            let payload;
+            try {
+                payload = JSON.parse(event.data);
+            } catch {
+                return;
+            }
+
+            if (payload.type === "bootstrap") {
+                setSidebarBadgeCount("verification", Number(payload.summary?.pending_verifications || 0));
+                return;
+            }
+
+            if (payload.type === "management.summary") {
+                setSidebarBadgeCount("verification", Number(payload.summary?.pending_verifications || 0));
+            }
         });
     })();
 </script>

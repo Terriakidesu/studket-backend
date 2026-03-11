@@ -189,6 +189,7 @@ Supported client actions:
 
 - `ping`
 - `subscribe_conversation`
+- `typing_status`
 - `send_message`
 
 #### Management action: `ping`
@@ -253,12 +254,34 @@ Client message:
 Effects:
 
 - Persists the message through the messaging service
+- Broadcasts a `chat.typing` event with `is_typing = false` for the sender before the message event
 - Broadcasts a `chat.message` event to:
   - all sockets subscribed to the conversation
   - the sender account’s sockets
   - the recipient account’s sockets
 - If the recipient is a normal `user`, also creates a notification and emits `notification.created`
 - If the recipient is management or superadmin, also broadcasts a `management.notification` event to all management sockets
+
+#### Management action: `typing_status`
+
+Broadcasts a transient typing state for a conversation participant.
+
+Client message:
+
+```json
+{
+  "action": "typing_status",
+  "conversation_id": 15,
+  "is_typing": true
+}
+```
+
+Behavior notes:
+
+- The conversation must exist.
+- The current management account must be a participant in the conversation.
+- The server broadcasts a `chat.typing` event to the conversation/account sockets for both participants.
+- The server does not persist typing state in the database.
 
 ### User Socket
 
@@ -340,6 +363,7 @@ Supported client actions:
 - `ping`
 - `subscribe_conversation`
 - `mark_notification_read`
+- `typing_status`
 - `send_message`
 
 #### User action: `ping`
@@ -438,8 +462,28 @@ Client message:
 Effects:
 
 - Persists the message through the messaging service
+- Broadcasts a `chat.typing` event with `is_typing = false` for the sender before the message event
 - Broadcasts a `chat.message` event to the conversation and both participant accounts
 - If the recipient is also a `user`, creates a notification and emits `notification.created`
+
+#### User action: `typing_status`
+
+Client message:
+
+```json
+{
+  "action": "typing_status",
+  "conversation_id": 15,
+  "is_typing": true
+}
+```
+
+Behavior notes:
+
+- The conversation must exist.
+- The path `account_id` must be a participant in that conversation.
+- The server broadcasts a `chat.typing` event to the conversation/account sockets for both participants.
+- Typing state is transient only and is not stored in the database.
 
 ### Server Event Types
 
@@ -448,11 +492,30 @@ The websocket layer currently emits the following event types:
 - `bootstrap`
 - `pong`
 - `chat.subscribed`
+- `chat.typing`
 - `chat.message`
 - `notification.created`
 - `notification.updated`
+- `management.summary`
 - `management.notification`
 - `error`
+
+#### Event: `chat.typing`
+
+Emitted when one participant starts or stops typing in a conversation.
+
+Payload shape:
+
+```json
+{
+  "type": "chat.typing",
+  "conversation_id": 15,
+  "account_id": 12,
+  "username": "campusbuyer1",
+  "account_type": "user",
+  "is_typing": true
+}
+```
 
 #### Event: `chat.message`
 
@@ -539,6 +602,21 @@ Payload shape:
   "body": "campusbuyer1 sent a message.",
   "conversation_id": 15,
   "account_id": 2
+}
+```
+
+#### Event: `management.summary`
+
+Broadcast to management sockets when dashboard summary counts need to update live.
+
+Payload shape:
+
+```json
+{
+  "type": "management.summary",
+  "summary": {
+    "pending_verifications": 2
+  }
 }
 ```
 

@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.db.models import UserProfile
+from app.db.models import SellerVerificationRequest, UserProfile
 from app.db.session import get_db
 from app.services.auth import (
     AuthServiceError,
@@ -12,6 +13,7 @@ from app.services.auth import (
     register_account,
     request_seller_status,
 )
+from app.services.realtime import realtime_hub, run_async_from_sync
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -37,6 +39,27 @@ class LoginRequest(BaseModel):
 class SellerStatusRequest(BaseModel):
     account_id: int
     submission_note: str | None = None
+
+
+def _emit_verification_summary_update(db: Session) -> None:
+    pending_verifications = (
+        db.query(func.count(SellerVerificationRequest.request_id))
+        .filter(SellerVerificationRequest.status == "pending")
+        .scalar()
+        or 0
+    )
+    try:
+        run_async_from_sync(
+            realtime_hub.broadcast_management_event,
+            {
+                "type": "management.summary",
+                "summary": {
+                    "pending_verifications": pending_verifications,
+                },
+            },
+        )
+    except RuntimeError:
+        pass
 
 
 def auth_error(status_code: int, message: str) -> HTTPException:
@@ -115,6 +138,7 @@ def request_seller_access(payload: SellerStatusRequest, db: Session = Depends(ge
         )
     except AuthServiceError as exc:
         raise auth_error(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    _emit_verification_summary_update(db)
 
     return {
         "message": "Trusted seller verification request submitted",

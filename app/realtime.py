@@ -179,6 +179,27 @@ async def _broadcast_message_events(
             )
 
 
+async def _broadcast_typing_event(
+    *,
+    conversation_id: int,
+    sender_account: Account,
+    target_account_ids: list[int],
+    is_typing: bool,
+) -> None:
+    await realtime_hub.broadcast_chat_event(
+        conversation_id=conversation_id,
+        account_ids=target_account_ids,
+        payload={
+            "type": "chat.typing",
+            "conversation_id": conversation_id,
+            "account_id": sender_account.account_id,
+            "username": sender_account.username,
+            "account_type": sender_account.account_type,
+            "is_typing": is_typing,
+        },
+    )
+
+
 @router.websocket("/ws/management")
 async def management_socket(websocket: WebSocket):
     session_account = _management_socket_account(websocket)
@@ -263,6 +284,15 @@ async def management_socket(websocket: WebSocket):
                     )
                     notification_payload = serialize_notification(notification)
                 db.commit()
+                target_account_ids = [account_id]
+                if recipient is not None:
+                    target_account_ids.append(recipient.account_id)
+                await _broadcast_typing_event(
+                    conversation_id=conversation_id,
+                    sender_account=sender,
+                    target_account_ids=target_account_ids,
+                    is_typing=False,
+                )
                 payload = serialize_message(message, sender_username=sender.username)
                 await _broadcast_message_events(
                     conversation_id=conversation_id,
@@ -270,6 +300,33 @@ async def management_socket(websocket: WebSocket):
                     sender_account_id=account_id,
                     recipient_account=recipient,
                     notification_payload=notification_payload,
+                )
+                continue
+            if action == "typing_status":
+                conversation_id = int(data.get("conversation_id") or 0)
+                is_typing = bool(data.get("is_typing"))
+                conversation = (
+                    db.query(Conversation)
+                    .filter(Conversation.conversation_id == conversation_id)
+                    .first()
+                )
+                if conversation is None or account_id not in {conversation.participant1_id, conversation.participant2_id}:
+                    await websocket.send_json({"type": "error", "detail": "Conversation not found"})
+                    continue
+                sender = (
+                    db.query(Account)
+                    .filter(Account.account_id == account_id)
+                    .first()
+                )
+                if sender is None:
+                    await websocket.send_json({"type": "error", "detail": "Account not found"})
+                    continue
+                target_account_ids = [conversation.participant1_id, conversation.participant2_id]
+                await _broadcast_typing_event(
+                    conversation_id=conversation_id,
+                    sender_account=sender,
+                    target_account_ids=target_account_ids,
+                    is_typing=is_typing,
                 )
                 continue
 
@@ -374,6 +431,15 @@ async def user_socket(websocket: WebSocket, account_id: int):
                     )
                     notification_payload = serialize_notification(notification)
                 db.commit()
+                target_account_ids = [account_id]
+                if recipient is not None:
+                    target_account_ids.append(recipient.account_id)
+                await _broadcast_typing_event(
+                    conversation_id=conversation_id,
+                    sender_account=sender,
+                    target_account_ids=target_account_ids,
+                    is_typing=False,
+                )
                 payload = serialize_message(message, sender_username=sender.username)
                 await _broadcast_message_events(
                     conversation_id=conversation_id,
@@ -381,6 +447,33 @@ async def user_socket(websocket: WebSocket, account_id: int):
                     sender_account_id=account_id,
                     recipient_account=recipient,
                     notification_payload=notification_payload,
+                )
+                continue
+            if action == "typing_status":
+                conversation_id = int(data.get("conversation_id") or 0)
+                is_typing = bool(data.get("is_typing"))
+                conversation = (
+                    db.query(Conversation)
+                    .filter(Conversation.conversation_id == conversation_id)
+                    .first()
+                )
+                if conversation is None or account_id not in {conversation.participant1_id, conversation.participant2_id}:
+                    await websocket.send_json({"type": "error", "detail": "Conversation not found"})
+                    continue
+                sender = (
+                    db.query(Account)
+                    .filter(Account.account_id == account_id)
+                    .first()
+                )
+                if sender is None:
+                    await websocket.send_json({"type": "error", "detail": "Account not found"})
+                    continue
+                target_account_ids = [conversation.participant1_id, conversation.participant2_id]
+                await _broadcast_typing_event(
+                    conversation_id=conversation_id,
+                    sender_account=sender,
+                    target_account_ids=target_account_ids,
+                    is_typing=is_typing,
                 )
                 continue
 
