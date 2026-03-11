@@ -36,12 +36,41 @@ These endpoints do not require a management session:
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/seller-status/request`
 
+### User-facing API endpoints
+
+These routes are currently mounted without the dashboard-session dependency:
+
+- `/api/v1/listings`
+- `/api/v1/listing-inventory`
+- `/api/v1/listing-media`
+- `/api/v1/tags`
+- `/api/v1/listing-tags`
+- `/api/v1/conversations`
+- `/api/v1/messages`
+- `/api/v1/transactions`
+- `/api/v1/reviews`
+- `/api/v1/transaction-qr`
+- `/api/v1/notifications`
+- `/api/v1/seller-reports`
+
+Important note:
+
+- These routes are user-facing in the sense that they no longer return the dashboard-only management-session error by default.
+- Several of them are still thin CRUD-style endpoints and are not yet hardened with ownership or user-session checks.
+
 ### Management-protected API endpoints
 
-All other `/api/v1/*` endpoints require a valid session created by the web login flow for a:
+The following routes require a valid session created by the web login flow for a:
 
 - `management` account
 - `superadmin` account
+
+- `/api/v1/accounts`
+- `/api/v1/user-profiles`
+- `/api/v1/management-accounts`
+- `/api/v1/listing-reports`
+- `/api/v1/looking-for-reports`
+- `/api/v1/conversation-reports`
 
 The session check is enforced by `require_dashboard_api_session()` in [app/api/v1/dependencies.py](/abs/path/d:/Dev/Python/studket-backend/app/api/v1/dependencies.py).
 
@@ -591,6 +620,7 @@ The listings router may return plain-string `detail` values such as:
 
 - `/api/v1/auth`
 - `/api/v1/listings`
+- `/api/v1/listing-media`
 
 ### CRUD routers
 
@@ -598,7 +628,6 @@ The listings router may return plain-string `detail` values such as:
 - `/api/v1/user-profiles`
 - `/api/v1/management-accounts`
 - `/api/v1/listing-inventory`
-- `/api/v1/listing-media`
 - `/api/v1/tags`
 - `/api/v1/listing-tags`
 - `/api/v1/listing-reports`
@@ -821,7 +850,7 @@ Returns a recommendation-style listing feed.
 
 Access:
 
-- Management session required
+- User-facing route
 
 Query arguments:
 
@@ -902,7 +931,7 @@ Searches listings using text, filters, and optional owner filtering.
 
 Access:
 
-- Management session required
+- User-facing route
 
 Query arguments:
 
@@ -974,7 +1003,7 @@ Lists all listings.
 
 Access:
 
-- Management session required
+- User-facing route
 
 Arguments:
 
@@ -996,7 +1025,7 @@ Fetches one listing by `listing_id`.
 
 Access:
 
-- Management session required
+- User-facing route
 
 Path arguments:
 
@@ -1021,7 +1050,7 @@ Returns the ordered media collection for a single listing.
 
 Access:
 
-- Management session required
+- User-facing route
 
 Path arguments:
 
@@ -1189,12 +1218,34 @@ Every CRUD router created with `create_crud_router()` exposes the same endpoint 
 - `PATCH /api/v1/<resource>/{item_id}`
 - `DELETE /api/v1/<resource>/{item_id}`
 
-All CRUD routers below require a management or superadmin session.
+The CRUD-style routers below do not all share the same access level anymore.
 
 Exceptions:
 
 - `/api/v1/listings` is a custom router documented earlier.
 - `/api/v1/listing-media` is also a custom router and is documented separately below.
+
+User-facing CRUD-style routers currently mounted without the dashboard dependency:
+
+- `/api/v1/listing-inventory`
+- `/api/v1/tags`
+- `/api/v1/listing-tags`
+- `/api/v1/conversations`
+- `/api/v1/messages`
+- `/api/v1/transactions`
+- `/api/v1/reviews`
+- `/api/v1/transaction-qr`
+- `/api/v1/notifications`
+- `/api/v1/seller-reports`
+
+Dashboard/staff-only CRUD routers:
+
+- `/api/v1/accounts`
+- `/api/v1/user-profiles`
+- `/api/v1/management-accounts`
+- `/api/v1/listing-reports`
+- `/api/v1/looking-for-reports`
+- `/api/v1/conversation-reports`
 
 ### Generic path argument
 
@@ -1306,7 +1357,7 @@ Base path:
 
 Access:
 
-- Management session required
+- User-facing route
 
 This resource is not a generic CRUD wrapper anymore. It supports both direct media record creation and multipart image upload.
 
