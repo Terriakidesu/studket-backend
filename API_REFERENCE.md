@@ -770,6 +770,8 @@ The listings router may return plain-string `detail` values such as:
 ### Human-readable docs
 
 - HTML API reference: `/docs`
+- LLM-friendly markdown/plaintext API reference: `/docs/llm`
+- LLM discovery file: `/llms.txt`
 - Swagger UI: `/swagger`
 
 ### Custom routers
@@ -1117,6 +1119,8 @@ Feed item fields:
 
 - Standard serialized `Listing` columns
 - `owner_id` `integer | null`
+- `share_token` `string | null`
+- `share_url` `string | null`
 - `poster_id` `integer | null`
   - Present only for `looking_for` posts
 - `media` `object[]`
@@ -1259,6 +1263,8 @@ Response:
 - Includes:
   - all table columns
   - `owner_id`
+  - `share_token`
+  - `share_url`
   - `poster_id` for `looking_for`
   - `media`
   - `primary_media_url`
@@ -1312,6 +1318,7 @@ Response fields:
 - `account_id` `integer`
 - `count` `integer`
 - `items` `object[]`
+  - each item also includes `share_token` and `share_url`
 
 Possible errors:
 
@@ -1368,10 +1375,32 @@ Response fields:
 - `listing_type` always `"looking_for"`
 - `count` `integer`
 - `items` `object[]`
+  - each item also includes `share_token` and `share_url`
 
 Possible errors:
 
 - `404 {"detail":"User account not found"}`
+
+### GET `/api/v1/listings/share/{share_token}`
+
+Fetches one listing by its permanent share token.
+
+Access:
+
+- User-facing route
+
+Path arguments:
+
+- `share_token` `string`, required
+
+Behavior notes:
+
+- share tokens are stable, unique per listing, and backfilled automatically for existing listings
+- the response shape matches the normal single-listing endpoint
+
+Possible errors:
+
+- `404 {"detail":"Listing not found"}`
 
 ### GET `/api/v1/listings/users/{account_id}/inquiries`
 
@@ -1635,6 +1664,8 @@ Response:
 
 - Serialized listing object
 - Includes `owner_id`
+- Includes `share_token`
+- Includes `share_url`
 - Includes `poster_id` when `listing_type == "looking_for"`
 - Includes `media`
 - Includes `primary_media_url`
@@ -1642,6 +1673,25 @@ Response:
 Possible errors:
 
 - `404 {"detail":"Listing not found"}`
+
+### Public share page
+
+The backend also serves a browser-friendly public share route outside `/api/v1`:
+
+- `GET /share/{share_token}`
+
+Behavior notes:
+
+- resolves the permanent share token to the listing
+- renders a public HTML page with:
+  - title
+  - status
+  - seller username
+  - primary media
+  - description
+  - tags
+- the page also links to:
+  - `/api/v1/listings/share/{share_token}`
 
 ### GET `/api/v1/listings/{item_id}/media`
 
@@ -2602,6 +2652,14 @@ Access:
 
 This resource now has a custom cancellation workflow endpoint.
 The legacy CRUD endpoints still exist for compatibility.
+
+Legacy CRUD routes remain available at:
+
+- `GET /api/v1/transactions/`
+- `GET /api/v1/transactions/{item_id}`
+- `POST /api/v1/transactions/`
+- `PATCH /api/v1/transactions/{item_id}`
+- `DELETE /api/v1/transactions/{item_id}`
 
 #### POST `/api/v1/transactions/{item_id}/cancel`
 

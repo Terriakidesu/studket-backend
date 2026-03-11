@@ -1,3 +1,5 @@
+from secrets import token_urlsafe
+
 from sqlalchemy import inspect, text
 
 from .base import Base
@@ -73,11 +75,52 @@ def _ensure_management_profile_photo_column() -> None:
         connection.execute(text("ALTER TABLE management_account ADD COLUMN profile_photo TEXT"))
 
 
+def _generate_share_token() -> str:
+    return token_urlsafe(9).replace("-", "").replace("_", "")
+
+
+def _ensure_listing_share_token_column() -> None:
+    inspector = inspect(engine)
+    if "listing" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("listing")}
+    existing_indexes = {index["name"] for index in inspector.get_indexes("listing")}
+
+    with engine.begin() as connection:
+        if "share_token" not in existing_columns:
+            connection.execute(text("ALTER TABLE listing ADD COLUMN share_token TEXT"))
+
+        listing_ids = [
+            row[0]
+            for row in connection.execute(
+                text("SELECT listing_id FROM listing WHERE share_token IS NULL OR share_token = ''")
+            ).fetchall()
+        ]
+        for listing_id in listing_ids:
+            token = _generate_share_token()
+            while connection.execute(
+                text("SELECT 1 FROM listing WHERE share_token = :token"),
+                {"token": token},
+            ).first():
+                token = _generate_share_token()
+            connection.execute(
+                text("UPDATE listing SET share_token = :token WHERE listing_id = :listing_id"),
+                {"token": token, "listing_id": listing_id},
+            )
+
+        if "uq_listing_share_token" not in existing_indexes:
+            connection.execute(
+                text("CREATE UNIQUE INDEX uq_listing_share_token ON listing (share_token)")
+            )
+
+
 def create_tables():
     Base.metadata.create_all(bind=engine)
     _ensure_account_report_columns()
     _ensure_user_profile_seller_column()
     _ensure_management_profile_photo_column()
+    _ensure_listing_share_token_column()
 
 
 if __name__ == "__main__":

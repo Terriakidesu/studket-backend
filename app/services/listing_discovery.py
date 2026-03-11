@@ -174,6 +174,8 @@ def _base_listing_query(db: Session):
 def _present_listing_payload(payload: dict[str, Any]) -> dict[str, Any]:
     owner_id = payload.get("seller_id")
     payload["owner_id"] = owner_id
+    payload["share_token"] = payload.get("share_token")
+    payload["share_url"] = f"/share/{payload['share_token']}" if payload.get("share_token") else None
     if payload.get("listing_type") == "looking_for":
         payload["poster_id"] = owner_id
     return payload

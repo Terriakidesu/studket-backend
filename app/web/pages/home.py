@@ -2,14 +2,30 @@ from html import escape
 from pathlib import Path
 import re
 
-from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+
+from app.db.models import Account, Listing, ListingMedia, ListingTag, Tag
+from app.db.session import get_db
 
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="app/templates")
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 API_REFERENCE_PATH = PROJECT_ROOT / "API_REFERENCE.md"
+
+
+def _llm_docs_text() -> str:
+    markdown_text = API_REFERENCE_PATH.read_text(encoding="utf-8").strip()
+    return (
+        "# Studket API Docs\n\n"
+        "Machine-friendly API reference for LLMs and tooling.\n\n"
+        "Human-readable HTML docs: /docs\n"
+        "Swagger UI: /swagger\n"
+        "Source markdown: /docs/llm\n\n"
+        f"{markdown_text}\n"
+    )
 
 
 def _render_inline_markdown(text: str) -> str:
@@ -112,5 +128,74 @@ def api_docs(request: Request):
             "request": request,
             "title": "API Docs",
             "api_reference_html": _render_markdown_html(markdown_text),
+        },
+    )
+
+
+@router.get("/docs/llm", response_class=PlainTextResponse)
+def api_docs_llm() -> str:
+    return _llm_docs_text()
+
+
+@router.get("/llms.txt", response_class=PlainTextResponse)
+def llms_txt() -> str:
+    return (
+        "Studket API Documentation\n"
+        "HTML docs: /docs\n"
+        "LLM-friendly markdown docs: /docs/llm\n"
+        "Swagger UI: /swagger\n"
+    )
+
+
+@router.get("/share/{share_token}", response_class=HTMLResponse)
+def share_listing_page(
+    share_token: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    listing = (
+        db.query(Listing)
+        .filter(Listing.share_token == share_token)
+        .first()
+    )
+    if listing is None:
+        return templates.TemplateResponse(
+            "share_listing.html",
+            {
+                "request": request,
+                "title": "Shared Listing",
+                "listing": None,
+            },
+            status_code=404,
+        )
+
+    media = (
+        db.query(ListingMedia)
+        .filter(ListingMedia.listing_id == listing.listing_id)
+        .order_by(ListingMedia.sort_order.asc(), ListingMedia.media_id.asc())
+        .all()
+    )
+    tags = (
+        db.query(Tag.tag_name)
+        .join(ListingTag, ListingTag.tag_id == Tag.tag_id)
+        .filter(ListingTag.listing_id == listing.listing_id)
+        .order_by(Tag.tag_name.asc())
+        .all()
+    )
+    seller = (
+        db.query(Account.username)
+        .filter(Account.account_id == listing.seller_id)
+        .scalar()
+    )
+    return templates.TemplateResponse(
+        "share_listing.html",
+        {
+            "request": request,
+            "title": listing.title,
+            "listing": listing,
+            "listing_media": media,
+            "listing_tags": [row.tag_name for row in tags],
+            "seller_username": seller,
+            "share_token": share_token,
         },
     )

@@ -72,6 +72,7 @@ class Listing(Base):
     listing_id = Column(Integer, primary_key=True)
 
     seller_id = Column(Integer, ForeignKey("user_profile.user_id"))
+    share_token = Column(String, unique=True)
 
     title = Column(String, nullable=False)
     description = Column(Text)

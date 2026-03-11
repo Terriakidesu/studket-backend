@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from decimal import Decimal
+from secrets import token_urlsafe
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response, status
@@ -65,6 +66,8 @@ def _normalize_tag_names(raw_tags: Any) -> list[str]:
 def _serialize_listing(instance: Listing) -> dict[str, Any]:
     payload = serialize_model(instance)
     payload["owner_id"] = instance.seller_id
+    payload["share_token"] = instance.share_token
+    payload["share_url"] = f"/share/{instance.share_token}" if instance.share_token else None
     if payload.get("listing_type") == "looking_for":
         payload["poster_id"] = instance.seller_id
     return payload
@@ -396,6 +399,18 @@ def _sync_listing_tags(db: Session, *, listing_id: int, tag_names: list[str]) ->
             db.delete(link)
 
 
+def _generate_listing_share_token(db: Session) -> str:
+    token = token_urlsafe(9).replace("-", "").replace("_", "")
+    while (
+        db.query(Listing.listing_id)
+        .filter(Listing.share_token == token)
+        .first()
+        is not None
+    ):
+        token = token_urlsafe(9).replace("-", "").replace("_", "")
+    return token
+
+
 @router.get("/feed")
 def feed(
     user_id: int | None = Query(default=None),
@@ -528,6 +543,21 @@ def get_user_looking_for_posts(account_id: int, db: Session = Depends(get_db)) -
             "items": payload_items,
         }
     )
+
+
+@router.get("/share/{share_token}")
+def get_item_by_share_token(share_token: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+    instance = (
+        db.query(Listing)
+        .filter(Listing.share_token == share_token)
+        .first()
+    )
+    if instance is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Listing not found",
+        )
+    return jsonable_encoder(_present_listing_with_media(instance, db))
 
 
 @router.get("/{item_id}/inquiries")
@@ -821,6 +851,7 @@ def create_item(
     payload = _normalize_listing_payload(payload)
     tag_names = _normalize_tag_names(payload.pop("tags", None))
     _validate_listing_creator(payload, db)
+    payload.setdefault("share_token", _generate_listing_share_token(db))
     instance = Listing(**payload)
     db.add(instance)
     db.flush()

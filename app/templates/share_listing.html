@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block head %}
+<style>
+    :root {
+        --bg: #f6fbf7;
+        --ink: #112419;
+        --muted: #64786d;
+        --line: #d7e6dc;
+        --accent: #15803d;
+        --accent-soft: #dcfce7;
+        --panel: #ffffff;
+    }
+    body {
+        margin: 0;
+        background:
+            radial-gradient(circle at top left, rgba(22, 163, 74, 0.10), transparent 26rem),
+            linear-gradient(135deg, #fbfefc, var(--bg));
+        color: var(--ink);
+        font-family: "Segoe UI", sans-serif;
+    }
+    .share-shell {
+        width: min(920px, calc(100% - 28px));
+        margin: 0 auto;
+        padding: 24px 0 48px;
+    }
+    .share-card {
+        padding: 24px;
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.94);
+        box-shadow: 0 22px 60px rgba(17, 36, 25, 0.08);
+    }
+    .share-meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: center;
+        margin-bottom: 18px;
+    }
+    .share-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: #166534;
+        font-size: .82rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+    .share-title {
+        margin: 0 0 8px;
+        font-size: clamp(1.6rem, 3vw, 2.4rem);
+    }
+    .share-subtitle {
+        margin: 0;
+        color: var(--muted);
+    }
+    .share-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr);
+        gap: 22px;
+        margin-top: 22px;
+    }
+    .media-frame {
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        background: #edf7f0;
+    }
+    .media-frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+    .media-empty {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--muted);
+        font-weight: 700;
+    }
+    .detail-card {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--panel);
+    }
+    .detail-card h2 {
+        margin: 0 0 12px;
+        font-size: 1.05rem;
+    }
+    .detail-list {
+        display: grid;
+        gap: 12px;
+    }
+    .detail-list div strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: .85rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+    .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+    }
+    .tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 7px 11px;
+        border-radius: 999px;
+        background: #eff8f2;
+        color: #166534;
+        font-size: .85rem;
+        font-weight: 700;
+    }
+    .description {
+        margin-top: 18px;
+        line-height: 1.7;
+        color: #203228;
+        white-space: pre-wrap;
+    }
+    .top-links {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    .top-links a {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 700;
+    }
+    @media (max-width: 780px) {
+        .share-grid {
+            grid-template-columns: 1fr;
+        }
+        .share-meta,
+        .top-links {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .share-card {
+            padding: 18px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="share-shell">
+    <div class="top-links">
+        <a href="/">Studket</a>
+        {% if listing %}
+        <a href="/api/v1/listings/share/{{ share_token }}">Open JSON API</a>
+        {% endif %}
+    </div>
+
+    <article class="share-card">
+        {% if listing %}
+        <div class="share-meta">
+            <div>
+                <div class="share-badge">{{ listing.listing_type or "listing" }}</div>
+                <h1 class="share-title">{{ listing.title }}</h1>
+                <p class="share-subtitle">
+                    Shared by {{ seller_username or "user" }} · Status: {{ listing.status or "available" }}
+                </p>
+            </div>
+            {% if listing.price is not none %}
+            <div class="share-badge">PHP {{ listing.price }}</div>
+            {% endif %}
+        </div>
+
+        <section class="share-grid">
+            <div>
+                <div class="media-frame">
+                    {% if listing_media %}
+                    <img src="{{ listing_media[0].file_path }}" alt="{{ listing.title }}">
+                    {% else %}
+                    <div class="media-empty">No media uploaded</div>
+                    {% endif %}
+                </div>
+                <div class="description">{{ listing.description or "No description provided." }}</div>
+                {% if listing_tags %}
+                <div class="tags">
+                    {% for tag in listing_tags %}
+                    <span class="tag">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <aside class="detail-card">
+                <h2>Listing Details</h2>
+                <div class="detail-list">
+                    <div>
+                        <strong>Owner ID</strong>
+                        <span>{{ listing.seller_id }}</span>
+                    </div>
+                    <div>
+                        <strong>Condition</strong>
+                        <span>{{ listing.condition or "Not specified" }}</span>
+                    </div>
+                    <div>
+                        <strong>Created</strong>
+                        <span>{{ listing.created_at or "-" }}</span>
+                    </div>
+                    <div>
+                        <strong>Share Token</strong>
+                        <span>{{ share_token }}</span>
+                    </div>
+                </div>
+            </aside>
+        </section>
+        {% else %}
+        <div class="share-badge">Not found</div>
+        <h1 class="share-title">Shared listing unavailable</h1>
+        <p class="share-subtitle">This share link does not match any current listing.</p>
+        {% endif %}
+    </article>
+</div>
+{% endblock %}

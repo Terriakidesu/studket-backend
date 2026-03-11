@@ -14,7 +14,7 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 crud_router = create_crud_router(
     model=Transaction,
-    prefix="/transactions",
+    prefix="",
     tags=["transactions"],
     pk_field="transaction_id",
 )
