@@ -325,6 +325,8 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        object-fit: cover;
+        overflow: hidden;
         background: linear-gradient(135deg, #bfdbfe, #dbeafe);
         color: var(--accent);
         font-weight: 800;
@@ -694,7 +696,11 @@
                         <i class="fa-solid fa-magnifying-glass"></i>
                     </a>
                     <a href="/dashboard/account" class="profile-chip" style="text-decoration:none; color:inherit;">
+                        {% if account.profile_photo %}
+                        <img class="profile-avatar" src="{{ account.profile_photo }}" alt="Staff profile picture">
+                        {% else %}
                         <span class="profile-avatar">{{ account.username[:2] }}</span>
+                        {% endif %}
                         <span class="profile-copy">
                             <strong>{{ account.username }}</strong>
                             <span>{{ account.email }}</span>

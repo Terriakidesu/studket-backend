@@ -6,7 +6,7 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
 from app.api.v1.common import serialize_model
-from app.db.models import Listing, ListingMedia, ListingTag, Tag, UserProfile
+from app.db.models import Account, Listing, ListingMedia, ListingTag, Tag, UserProfile
 from app.db.session import get_db
 from app.services.listing_discovery import build_listing_payloads, get_recommended_feed, search_listings
 
@@ -70,6 +70,12 @@ def _serialize_listing_media_rows(media_rows: list[ListingMedia]) -> list[dict[s
 
 def _present_listing_with_media(instance: Listing, db: Session) -> dict[str, Any]:
     payload = _serialize_listing(instance)
+    seller_account_type = (
+        db.query(Account.account_type)
+        .filter(Account.account_id == instance.seller_id)
+        .scalar()
+    )
+    payload["seller_profile_available"] = seller_account_type == "user"
     tag_rows = (
         db.query(Tag.tag_name)
         .join(ListingTag, ListingTag.tag_id == Tag.tag_id)

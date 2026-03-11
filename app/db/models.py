@@ -57,6 +57,7 @@ class ManagementAccount(Base):
     last_name = Column(String)
 
     role_name = Column(String)
+    profile_photo = Column(Text)
 
     created_at = Column(TIMESTAMP, server_default=func.now())
 

@@ -159,7 +159,12 @@ def _user_preference_profile(db: Session, user_id: int) -> dict[str, Any]:
 
 def _base_listing_query(db: Session):
     return (
-        db.query(Listing, Account.username.label("seller_username"), UserProfile.campus.label("seller_campus"))
+        db.query(
+            Listing,
+            Account.username.label("seller_username"),
+            Account.account_type.label("seller_account_type"),
+            UserProfile.campus.label("seller_campus"),
+        )
         .outerjoin(Account, Account.account_id == Listing.seller_id)
         .outerjoin(UserProfile, UserProfile.user_id == Listing.seller_id)
         .filter(Listing.status == "available")
@@ -226,7 +231,7 @@ def get_recommended_feed(
         _normalize_text(tag_value) for tag_value in (tags or []) if _normalize_text(tag_value)
     }
     scored_items: list[dict[str, Any]] = []
-    for listing, seller_username, seller_campus in base_rows:
+    for listing, seller_username, seller_account_type, seller_campus in base_rows:
         score = 0.0
         reasons: list[str] = []
         listing_tags = [_normalize_text(tag) for tag in tags_map.get(listing.listing_id, [])]
@@ -294,6 +299,7 @@ def get_recommended_feed(
             {
                 "listing": listing,
                 "seller_username": seller_username,
+                "seller_account_type": seller_account_type,
                 "seller_campus": seller_campus,
                 "tags": tags_map.get(listing.listing_id, []),
                 "score": round(score, 3),
@@ -307,6 +313,7 @@ def get_recommended_feed(
         payload = serialize_model(item["listing"])
         payload["seller_username"] = item["seller_username"]
         payload["seller_campus"] = item["seller_campus"]
+        payload["seller_profile_available"] = item["seller_account_type"] == "user"
         payload["tags"] = item["tags"]
         payload["media"] = media_map.get(item["listing"].listing_id, [])
         payload["primary_media_url"] = (
@@ -382,7 +389,7 @@ def search_listings(
     verified_sellers = _verified_seller_ids(db)
 
     scored_results: list[dict[str, Any]] = []
-    for listing, seller_username, seller_campus in rows:
+    for listing, seller_username, seller_account_type, seller_campus in rows:
         score = 0.0
         reasons: list[str] = []
         title_text = _normalize_text(listing.title)
@@ -423,6 +430,7 @@ def search_listings(
         payload = serialize_model(listing)
         payload["seller_username"] = seller_username
         payload["seller_campus"] = seller_campus
+        payload["seller_profile_available"] = seller_account_type == "user"
         payload["tags"] = tags_map.get(listing.listing_id, [])
         payload["media"] = media_map.get(listing.listing_id, [])
         payload["primary_media_url"] = (

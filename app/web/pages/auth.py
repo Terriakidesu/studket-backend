@@ -26,6 +26,7 @@ from app.db.models import (
 )
 from app.db.session import get_db
 from app.services.audit import create_audit_log
+from app.api.v1.profile_pictures import ensure_account_profile_picture
 from app.services.auth import (
     AuthServiceError,
     RegistrationData,
@@ -277,6 +278,13 @@ def _mark_conversation_messages_read(
 
 def _build_dashboard_context(request: Request, db: Session) -> dict:
     account = _require_web_session(request)
+    account_context = dict(account)
+    if account.get("account_type") in WEB_ALLOWED_ACCOUNT_TYPES:
+        try:
+            profile_picture = ensure_account_profile_picture(account["account_id"], db)
+            account_context["profile_photo"] = profile_picture.get("file_url")
+        except Exception:
+            account_context["profile_photo"] = None
     csrf_token = _ensure_csrf_token(request)
     total_users = (
         db.query(func.count(Account.account_id))
@@ -636,7 +644,7 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
     return {
         "request": request,
         "title": "Dashboard",
-        "account": account,
+        "account": account_context,
         "csrf_token": csrf_token,
         "metrics": {
             "total_users": total_users,
@@ -663,7 +671,7 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         },
         "lowest_rated_seller": lowest_rated_seller,
         "management_timeout_minutes": timeout_minutes,
-        "is_superadmin": account.get("account_type") == "superadmin",
+        "is_superadmin": account_context.get("account_type") == "superadmin",
         "recent_audit_logs": recent_audit_logs,
         "management_users": management_users,
         "conversation_count": conversation_count,

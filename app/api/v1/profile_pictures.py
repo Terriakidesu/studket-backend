@@ -11,7 +11,7 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
 from app.api.v1.dependencies import require_dashboard_api_session
-from app.db.models import Account, UserProfile
+from app.db.models import Account, ManagementAccount, UserProfile
 from app.db.session import get_db
 from app.services.audit import create_audit_log
 
@@ -21,28 +21,72 @@ PROFILE_PICTURE_ROOT = Path("app/static/profile-pictures")
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"}
 
 
-def _get_account_and_profile(account_id: int, db: Session) -> tuple[Account, UserProfile]:
+def _get_or_create_staff_profile(account: Account, db: Session) -> ManagementAccount:
+    profile = (
+        db.query(ManagementAccount)
+        .filter(ManagementAccount.manager_id == account.account_id)
+        .first()
+    )
+    if profile is not None:
+        return profile
+
+    profile = ManagementAccount(
+        manager_id=account.account_id,
+        role_name="superadmin" if account.account_type == "superadmin" else "manager",
+    )
+    db.add(profile)
+    db.flush()
+    return profile
+
+
+def _get_account_and_profile(
+    account_id: int,
+    db: Session,
+    *,
+    create_staff_profile: bool = False,
+) -> tuple[Account, UserProfile | ManagementAccount]:
     account = (
         db.query(Account)
-        .filter(Account.account_id == account_id, Account.account_type == "user")
+        .filter(Account.account_id == account_id)
         .first()
     )
     if account is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User account not found",
+            detail="Account not found",
+        )
+
+    if account.account_type == "user":
+        profile = (
+            db.query(UserProfile)
+            .filter(UserProfile.user_id == account_id)
+            .first()
+        )
+        if profile is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User profile not found",
+            )
+        return account, profile
+
+    if account.account_type not in {"management", "superadmin"}:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile picture not available for this account type",
         )
 
     profile = (
-        db.query(UserProfile)
-        .filter(UserProfile.user_id == account_id)
+        db.query(ManagementAccount)
+        .filter(ManagementAccount.manager_id == account_id)
         .first()
     )
     if profile is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User profile not found",
-        )
+        if not create_staff_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Staff profile not found",
+            )
+        profile = _get_or_create_staff_profile(account, db)
     return account, profile
 
 
@@ -68,7 +112,15 @@ def _avatar_colors(seed: int) -> tuple[str, str]:
     return palettes[seed % len(palettes)]
 
 
-def _initials(account: Account, profile: UserProfile) -> str:
+def _profile_photo(profile: UserProfile | ManagementAccount) -> str | None:
+    return (getattr(profile, "profile_photo", None) or "").strip() or None
+
+
+def _set_profile_photo(profile: UserProfile | ManagementAccount, value: str | None) -> None:
+    setattr(profile, "profile_photo", value)
+
+
+def _initials(account: Account, profile: UserProfile | ManagementAccount) -> str:
     parts = [
         (profile.first_name or "").strip(),
         (profile.last_name or "").strip(),
@@ -94,7 +146,7 @@ def _png_chunk(chunk_type: bytes, data: bytes) -> bytes:
     )
 
 
-def _generated_avatar_png(account: Account, profile: UserProfile) -> bytes:
+def _generated_avatar_png(account: Account, profile: UserProfile | ManagementAccount) -> bytes:
     size = 256
     cells = 5
     padding = 20
@@ -141,8 +193,12 @@ def _generated_avatar_png(account: Account, profile: UserProfile) -> bytes:
     )
 
 
-def _ensure_generated_profile_picture(account: Account, profile: UserProfile, db: Session) -> None:
-    current_photo = (profile.profile_photo or "").strip()
+def _ensure_generated_profile_picture(
+    account: Account,
+    profile: UserProfile | ManagementAccount,
+    db: Session,
+) -> None:
+    current_photo = _profile_photo(profile) or ""
     if current_photo:
         relative_path = current_photo.lstrip("/")
         if relative_path.startswith("static/"):
@@ -155,7 +211,7 @@ def _ensure_generated_profile_picture(account: Account, profile: UserProfile, db
     directory = _profile_directory(account.account_id)
     target = directory / "generated-avatar.png"
     target.write_bytes(_generated_avatar_png(account, profile))
-    profile.profile_photo = _public_path(target)
+    _set_profile_photo(profile, _public_path(target))
     db.commit()
     db.refresh(profile)
 
@@ -170,8 +226,8 @@ def _profile_photo_filesystem_path(profile_photo: str | None) -> Path | None:
     return Path("app/static") / relative_path
 
 
-def _delete_local_profile_picture(profile: UserProfile) -> None:
-    existing_path = _profile_photo_filesystem_path(profile.profile_photo)
+def _delete_local_profile_picture(profile: UserProfile | ManagementAccount) -> None:
+    existing_path = _profile_photo_filesystem_path(_profile_photo(profile))
     if existing_path is None or not existing_path.exists():
         return
     if PROFILE_PICTURE_ROOT not in existing_path.parents:
@@ -180,30 +236,63 @@ def _delete_local_profile_picture(profile: UserProfile) -> None:
         existing_path.unlink()
 
 
-def _serialize_profile_picture(account: Account, profile: UserProfile) -> dict[str, object]:
-    return {
+def _serialize_profile_picture(
+    account: Account,
+    profile: UserProfile | ManagementAccount,
+) -> dict[str, object]:
+    payload = {
         "account_id": account.account_id,
-        "user_id": profile.user_id,
-        "profile_photo": profile.profile_photo,
-        "file_url": profile.profile_photo,
-        "generated": str(profile.profile_photo or "").endswith("/generated-avatar.png"),
+        "account_type": account.account_type,
+        "profile_photo": _profile_photo(profile),
+        "file_url": _profile_photo(profile),
+        "generated": str(_profile_photo(profile) or "").endswith("/generated-avatar.png"),
     }
+    if isinstance(profile, UserProfile):
+        payload["user_id"] = profile.user_id
+    else:
+        payload["manager_id"] = profile.manager_id
+    return payload
+
+
+def ensure_account_profile_picture(account_id: int, db: Session) -> dict[str, object]:
+    account, profile = _get_account_and_profile(account_id, db, create_staff_profile=True)
+    _ensure_generated_profile_picture(account, profile, db)
+    return _serialize_profile_picture(account, profile)
+
+
+def _require_staff_profile_session(request: Request, account: Account) -> None:
+    if account.account_type not in {"management", "superadmin"}:
+        return
+
+    session_account = request.session.get("account") or {}
+    session_type = session_account.get("account_type")
+    session_account_id = session_account.get("account_id")
+    if session_type not in {"management", "superadmin"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Management login required for staff profile pictures",
+        )
+    if session_account_id != account.account_id and session_type != "superadmin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only manage your own staff profile picture",
+        )
 
 
 @router.get("/{account_id}")
 def get_profile_picture(account_id: int, db: Session = Depends(get_db)) -> dict[str, object]:
-    account, profile = _get_account_and_profile(account_id, db)
-    _ensure_generated_profile_picture(account, profile, db)
-    return jsonable_encoder(_serialize_profile_picture(account, profile))
+    return jsonable_encoder(ensure_account_profile_picture(account_id, db))
 
 
 @router.post("/upload")
 async def upload_profile_picture(
+    request: Request,
     account_id: int = Form(...),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
-    account, profile = _get_account_and_profile(account_id, db)
+    account, profile = _get_account_and_profile(account_id, db, create_staff_profile=True)
+    _require_staff_profile_session(request, account)
 
     extension = Path(file.filename or "").suffix.lower()
     if extension not in ALLOWED_EXTENSIONS:
@@ -217,7 +306,7 @@ async def upload_profile_picture(
     content = await file.read()
     target.write_bytes(content)
 
-    profile.profile_photo = _public_path(target)
+    _set_profile_photo(profile, _public_path(target))
     db.commit()
     db.refresh(profile)
     return jsonable_encoder(_serialize_profile_picture(account, profile))
@@ -225,12 +314,14 @@ async def upload_profile_picture(
 
 @router.post("/generate")
 def generate_profile_picture(
+    request: Request,
     account_id: int = Form(...),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
-    account, profile = _get_account_and_profile(account_id, db)
+    account, profile = _get_account_and_profile(account_id, db, create_staff_profile=True)
+    _require_staff_profile_session(request, account)
     _delete_local_profile_picture(profile)
-    profile.profile_photo = None
+    _set_profile_photo(profile, None)
     db.commit()
     db.refresh(profile)
     _ensure_generated_profile_picture(account, profile, db)
@@ -245,9 +336,9 @@ def replace_inappropriate_profile_picture(
     staff_account: dict = Depends(require_dashboard_api_session),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
-    account, profile = _get_account_and_profile(account_id, db)
+    account, profile = _get_account_and_profile(account_id, db, create_staff_profile=True)
     _delete_local_profile_picture(profile)
-    profile.profile_photo = None
+    _set_profile_photo(profile, None)
     db.flush()
     _ensure_generated_profile_picture(account, profile, db)
     create_audit_log(
@@ -256,8 +347,8 @@ def replace_inappropriate_profile_picture(
         actor_username=staff_account.get("username"),
         actor_role=staff_account.get("account_type"),
         action="replace_profile_picture",
-        target_type="user_profile",
-        target_id=str(profile.user_id),
+        target_type="user_profile" if isinstance(profile, UserProfile) else "management_account",
+        target_id=str(profile.user_id if isinstance(profile, UserProfile) else profile.manager_id),
         target_label=account.username,
         details=(reason or "").strip() or "Inappropriate profile picture",
     )

@@ -60,10 +60,24 @@ def _ensure_user_profile_seller_column() -> None:
             connection.execute(text(statement))
 
 
+def _ensure_management_profile_photo_column() -> None:
+    inspector = inspect(engine)
+    if "management_account" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("management_account")}
+    if "profile_photo" in existing_columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE management_account ADD COLUMN profile_photo TEXT"))
+
+
 def create_tables():
     Base.metadata.create_all(bind=engine)
     _ensure_account_report_columns()
     _ensure_user_profile_seller_column()
+    _ensure_management_profile_photo_column()
 
 
 if __name__ == "__main__":
