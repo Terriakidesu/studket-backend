@@ -148,10 +148,17 @@
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                 <button type="submit"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Warn</button>
                             </form>
+                            {% if seller.account_status == "banned" %}
+                            <form method="post" action="/dashboard/sellers/{{ seller.seller_id }}/unban">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button type="submit" class="success-btn"><i class="fa-solid fa-user-check" style="margin-right:6px;"></i>Unban</button>
+                            </form>
+                            {% else %}
                             <form method="post" action="/dashboard/sellers/{{ seller.seller_id }}/ban">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                 <button type="submit" class="danger"><i class="fa-solid fa-user-slash" style="margin-right:6px;"></i>Ban</button>
                             </form>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>

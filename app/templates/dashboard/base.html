@@ -437,6 +437,94 @@
     .block-spacer {
         margin-top: 16px;
     }
+    .chat-layout {
+        display: grid;
+        grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+        gap: 18px;
+        align-items: stretch;
+    }
+    .chat-sidebar,
+    .chat-thread {
+        min-height: 68vh;
+    }
+    .chat-list {
+        display: grid;
+        gap: 10px;
+    }
+    .chat-card {
+        display: block;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        text-decoration: none;
+        color: var(--ink);
+        background: rgba(255,255,255,0.58);
+        transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }
+    .chat-card:hover {
+        transform: translateY(-1px);
+        border-color: rgba(37, 99, 235, 0.22);
+        box-shadow: 0 12px 24px rgba(16, 32, 58, 0.05);
+    }
+    .chat-card.active {
+        border-color: rgba(37, 99, 235, 0.34);
+        background: linear-gradient(180deg, rgba(219, 234, 254, 0.86), rgba(255,255,255,0.82));
+    }
+    .chat-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+    .chat-meta {
+        font-size: .82rem;
+        color: var(--muted);
+    }
+    .message-stack {
+        display: grid;
+        gap: 12px;
+        max-height: 56vh;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+    .message-row {
+        display: flex;
+    }
+    .message-row.outbound {
+        justify-content: flex-end;
+    }
+    .message-bubble {
+        max-width: min(78%, 680px);
+        padding: 12px 14px;
+        border-radius: 18px;
+        background: rgba(255,255,255,0.82);
+        border: 1px solid var(--line);
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.04);
+    }
+    .message-row.outbound .message-bubble {
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        color: white;
+        border-color: transparent;
+    }
+    .message-author {
+        font-size: .8rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+    }
+    .message-time {
+        margin-top: 8px;
+        font-size: .78rem;
+        color: var(--muted);
+    }
+    .message-row.outbound .message-time {
+        color: rgba(255,255,255,0.78);
+    }
+    .composer {
+        margin-top: 16px;
+        display: grid;
+        gap: 12px;
+    }
     @media (max-width: 1180px) {
         .dashboard-shell {
             width: 100%;
@@ -491,7 +579,7 @@
         }
     }
     @media (max-width: 1100px) {
-        .metrics, .content-grid, .mini-grid { grid-template-columns: 1fr; }
+        .metrics, .content-grid, .mini-grid, .chat-layout { grid-template-columns: 1fr; }
     }
     @media (max-width: 760px) {
         .navbar { flex-direction: column; align-items: flex-start; }
@@ -524,6 +612,7 @@
                 <p class="sidebar-title">Overview</p>
                 <nav class="sidebar-nav">
                     <a class="sidebar-link {% if active_page == 'overview' %}active{% endif %}" href="/dashboard" title="Dashboard"><i class="fa-solid fa-gauge-high"></i><span class="sidebar-text">Dashboard</span></a>
+                    <a class="sidebar-link {% if active_page == 'messages' %}active{% endif %}" href="/dashboard/messages" title="Messages"><i class="fa-regular fa-envelope"></i><span class="sidebar-text">Messages</span>{% if conversation_count %}<span class="sidebar-badge">{{ conversation_count }}</span>{% endif %}</a>
                     <a class="sidebar-link {% if active_page == 'verification' %}active{% endif %}" href="/dashboard/verifications" title="Seller Verification"><i class="fa-solid fa-user-check"></i><span class="sidebar-text">Seller Verification</span>{% if pending_verification_count %}<span class="sidebar-badge">{{ pending_verification_count }}</span>{% endif %}</a>
                     <a class="sidebar-link {% if active_page == 'moderation' %}active{% endif %}" href="/dashboard/moderation" title="Trust and Safety"><i class="fa-solid fa-gavel"></i><span class="sidebar-text">Trust and Safety</span>{% if pending_moderation_count %}<span class="sidebar-badge">{{ pending_moderation_count }}</span>{% endif %}</a>
                 </nav>
@@ -571,9 +660,9 @@
                     <p>{{ page_description }}</p>
                 </div>
                 <div class="actions">
-                    <button type="button" class="button nav-icon" aria-label="Messages">
+                    <a href="/dashboard/messages" class="button nav-icon" aria-label="Messages">
                         <i class="fa-regular fa-envelope"></i>
-                    </button>
+                    </a>
                     <button type="button" class="button nav-icon" aria-label="Search">
                         <i class="fa-solid fa-magnifying-glass"></i>
                     </button>

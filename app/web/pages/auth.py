@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, aliased
 
 from app.core.security import SUPERADMIN_INVITE_CODE, generate_csrf_token
@@ -16,6 +16,7 @@ from app.db.models import (
     ListingReport,
     LookingForReport,
     ManagementAccount,
+    Message,
     Review,
     SellerReport,
     SellerVerificationRequest,
@@ -199,6 +200,43 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         .all()
     )
 
+    participant1 = aliased(Account)
+    participant2 = aliased(Account)
+    conversations = (
+        db.query(
+            Conversation.conversation_id,
+            Conversation.conversation_type,
+            Conversation.created_at,
+            participant1.username.label("participant1_username"),
+            participant2.username.label("participant2_username"),
+            participant1.account_type.label("participant1_type"),
+            participant2.account_type.label("participant2_type"),
+            func.max(Message.sent_at).label("last_message_at"),
+            func.count(Message.message_id).label("message_count"),
+        )
+        .outerjoin(Message, Message.conversation_id == Conversation.conversation_id)
+        .outerjoin(participant1, participant1.account_id == Conversation.participant1_id)
+        .outerjoin(participant2, participant2.account_id == Conversation.participant2_id)
+        .filter(
+            or_(
+                and_(participant1.account_type.in_(WEB_ALLOWED_ACCOUNT_TYPES), participant2.account_type == "user"),
+                and_(participant2.account_type.in_(WEB_ALLOWED_ACCOUNT_TYPES), participant1.account_type == "user"),
+            )
+        )
+        .group_by(
+            Conversation.conversation_id,
+            Conversation.conversation_type,
+            Conversation.created_at,
+            participant1.username,
+            participant2.username,
+            participant1.account_type,
+            participant2.account_type,
+        )
+        .order_by(func.max(Message.sent_at).desc().nullslast(), Conversation.created_at.desc())
+        .limit(20)
+        .all()
+    )
+
     listing_reports = (
         db.query(
             Listing.listing_id,
@@ -255,8 +293,6 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         .all()
     )
 
-    participant1 = aliased(Account)
-    participant2 = aliased(Account)
     reported_account = aliased(Account)
     conversation_reports = (
         db.query(
@@ -333,6 +369,7 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         .limit(20)
         .all()
     )
+    conversation_count = db.query(func.count(Conversation.conversation_id)).scalar() or 0
     management_users = (
         db.query(
             Account.account_id,
@@ -392,6 +429,7 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         "looking_for_reports": looking_for_reports,
         "conversation_reports": conversation_reports,
         "seller_reports": seller_reports,
+        "conversations": conversations,
         "report_counts": {
             "listing": open_listing_reports,
             "looking_for": open_looking_for_reports,
@@ -403,6 +441,7 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         "is_superadmin": account.get("account_type") == "superadmin",
         "recent_audit_logs": recent_audit_logs,
         "management_users": management_users,
+        "conversation_count": conversation_count,
         "chart_data": {
             "marketplace_mix": {
                 "users": total_users,
@@ -678,6 +717,56 @@ def dashboard_moderation(request: Request, db: Session = Depends(get_db)):
         }
     )
     return templates.TemplateResponse("dashboard/moderation.html", context)
+
+
+@router.get("/dashboard/messages", response_class=HTMLResponse)
+def dashboard_messages(
+    request: Request,
+    conversation_id: int | None = None,
+    db: Session = Depends(get_db),
+):
+    try:
+        context = _build_dashboard_context(request, db)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    conversation_rows = context.get("conversations", [])
+
+    selected_conversation = None
+    if conversation_rows:
+        selected_conversation = next(
+            (row for row in conversation_rows if row.conversation_id == conversation_id),
+            conversation_rows[0],
+        )
+
+    messages = []
+    if selected_conversation is not None:
+        messages = (
+            db.query(
+                Message.message_id,
+                Message.message_text,
+                Message.sent_at,
+                Message.is_read,
+                Message.sender_id,
+                Account.username.label("sender_username"),
+            )
+            .outerjoin(Account, Account.account_id == Message.sender_id)
+            .filter(Message.conversation_id == selected_conversation.conversation_id)
+            .order_by(Message.sent_at.asc(), Message.message_id.asc())
+            .all()
+        )
+
+    context.update(
+        {
+            "active_page": "messages",
+            "page_title": "Messages",
+            "page_description": "Review staff-to-user conversations and send dashboard replies inside the same chat thread.",
+            "conversations": conversation_rows,
+            "selected_conversation": selected_conversation,
+            "conversation_messages": messages,
+        }
+    )
+    return templates.TemplateResponse("dashboard/messages.html", context)
 
 
 @router.get("/dashboard/quality", response_class=HTMLResponse)
@@ -969,6 +1058,108 @@ def ban_seller(
         target_id=str(seller.account_id),
         target_label=seller.username,
         details="Banned seller from dashboard moderation",
+    )
+    db.commit()
+    return RedirectResponse(url="/dashboard/moderation", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/dashboard/messages/{conversation_id}/send")
+def send_dashboard_message(
+    conversation_id: int,
+    request: Request,
+    csrf_token: str = Form(...),
+    message_text: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        account = _require_web_session(request)
+        _verify_csrf(request, csrf_token)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    conversation = (
+        db.query(Conversation)
+        .filter(Conversation.conversation_id == conversation_id)
+        .first()
+    )
+    if conversation is None:
+        return RedirectResponse(url="/dashboard/messages", status_code=status.HTTP_303_SEE_OTHER)
+
+    participant_types = {
+        row.account_type
+        for row in db.query(Account.account_type)
+        .filter(Account.account_id.in_([conversation.participant1_id, conversation.participant2_id]))
+        .all()
+    }
+    if not (("user" in participant_types) and participant_types.intersection(WEB_ALLOWED_ACCOUNT_TYPES)):
+        return RedirectResponse(url="/dashboard/messages", status_code=status.HTTP_303_SEE_OTHER)
+
+    trimmed_message = message_text.strip()
+    if not trimmed_message:
+        return RedirectResponse(
+            url=f"/dashboard/messages?conversation_id={conversation_id}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    db.add(
+        Message(
+            conversation_id=conversation_id,
+            sender_id=account["account_id"],
+            message_text=trimmed_message,
+            is_read=False,
+        )
+    )
+    create_audit_log(
+        db,
+        actor_account_id=account["account_id"],
+        actor_username=account["username"],
+        actor_role=account["account_type"],
+        action="send_dashboard_message",
+        target_type="conversation",
+        target_id=str(conversation_id),
+        target_label=str(conversation_id),
+        details="Sent message from dashboard chat UI",
+    )
+    db.commit()
+    return RedirectResponse(
+        url=f"/dashboard/messages?conversation_id={conversation_id}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.post("/dashboard/sellers/{seller_id}/unban")
+def unban_seller(
+    seller_id: int,
+    request: Request,
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        account = _require_web_session(request)
+        _verify_csrf(request, csrf_token)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    seller = (
+        db.query(Account)
+        .filter(Account.account_id == seller_id, Account.account_type == "user")
+        .first()
+    )
+    if seller is None:
+        return RedirectResponse(url="/dashboard/moderation", status_code=status.HTTP_303_SEE_OTHER)
+
+    seller.account_status = "active"
+
+    create_audit_log(
+        db,
+        actor_account_id=account["account_id"],
+        actor_username=account["username"],
+        actor_role=account["account_type"],
+        action="unban_seller",
+        target_type="account",
+        target_id=str(seller.account_id),
+        target_label=seller.username,
+        details="Restored seller access from dashboard moderation",
     )
     db.commit()
     return RedirectResponse(url="/dashboard/moderation", status_code=status.HTTP_303_SEE_OTHER)

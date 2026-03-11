@@ -1,0 +1,32 @@
+<article class="panel">
+    <h2><i class="fa-regular fa-envelope" style="margin-right:8px;"></i>Inbox Snapshot</h2>
+    <p class="lead">Quick access to the latest staff-to-user conversations visible from the dashboard.</p>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Conversation</th>
+                    <th>Messages</th>
+                    <th>Last Activity</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for conversation in conversations[:5] %}
+                <tr>
+                    <td>
+                        <strong>#{{ conversation.conversation_id }}</strong><br>
+                        <span class="muted">{{ conversation.participant1_username or "unknown" }} and {{ conversation.participant2_username or "unknown" }}</span>
+                    </td>
+                    <td>{{ conversation.message_count }}</td>
+                    <td>{{ conversation.last_message_at or conversation.created_at or "-" }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="muted">No conversations available.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="row-actions">
+        <a class="button" href="/dashboard/messages"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Messages</a>
+    </div>
+</article>

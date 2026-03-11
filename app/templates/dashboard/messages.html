@@ -1,0 +1,65 @@
+{% extends "dashboard/base.html" %}
+
+{% block dashboard_content %}
+<section class="chat-layout">
+    <article class="panel chat-sidebar">
+        <h2><i class="fa-regular fa-envelope" style="margin-right:8px;"></i>Conversations</h2>
+        <p class="lead">Open any staff-to-user conversation to review the thread and reply from the dashboard.</p>
+        <div class="chat-list">
+            {% for conversation in conversations %}
+            <a class="chat-card {% if selected_conversation and selected_conversation.conversation_id == conversation.conversation_id %}active{% endif %}" href="/dashboard/messages?conversation_id={{ conversation.conversation_id }}">
+                <div class="chat-header">
+                    <div>
+                        <strong>#{{ conversation.conversation_id }}</strong><br>
+                        <span class="muted">{{ conversation.participant1_username or "unknown" }} and {{ conversation.participant2_username or "unknown" }}</span>
+                    </div>
+                    <span class="chat-meta">{{ conversation.last_message_at or conversation.created_at or "-" }}</span>
+                </div>
+                <div class="chat-meta">
+                    {{ conversation.message_count }} messages
+                    {% if conversation.conversation_type %}
+                    · {{ conversation.conversation_type }}
+                    {% endif %}
+                </div>
+            </a>
+            {% else %}
+            <div class="detail-card muted">No conversations available yet.</div>
+            {% endfor %}
+        </div>
+    </article>
+
+    <article class="panel chat-thread">
+        {% if selected_conversation %}
+        <h2><i class="fa-solid fa-comments" style="margin-right:8px;"></i>Conversation #{{ selected_conversation.conversation_id }}</h2>
+        <p class="lead">{{ selected_conversation.participant1_username or "unknown" }} and {{ selected_conversation.participant2_username or "unknown" }}</p>
+        <div class="message-stack">
+            {% for message in conversation_messages %}
+            <div class="message-row {% if message.sender_id == account.account_id %}outbound{% endif %}">
+                <article class="message-bubble">
+                    <div class="message-author">{{ message.sender_username or "unknown sender" }}</div>
+                    <div>{{ message.message_text or "" }}</div>
+                    <div class="message-time">{{ message.sent_at or "-" }}</div>
+                </article>
+            </div>
+            {% else %}
+            <div class="detail-card muted">No messages in this conversation yet.</div>
+            {% endfor %}
+        </div>
+        <form class="composer" method="post" action="/dashboard/messages/{{ selected_conversation.conversation_id }}/send">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div>
+                <label class="muted" for="message_text">Reply</label>
+                <textarea id="message_text" name="message_text" placeholder="Write a dashboard reply..." required></textarea>
+            </div>
+            <div class="row-actions">
+                <button type="submit" class="primary"><i class="fa-solid fa-paper-plane" style="margin-right:6px;"></i>Send message</button>
+            </div>
+        </form>
+        {% else %}
+        <h2><i class="fa-solid fa-comments" style="margin-right:8px;"></i>Messages</h2>
+        <p class="lead">No conversation selected yet.</p>
+        <div class="detail-card muted">Choose a conversation from the left to view or send messages.</div>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}
