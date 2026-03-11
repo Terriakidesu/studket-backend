@@ -255,6 +255,26 @@ def _emit_verification_summary_update(db: Session) -> None:
     )
 
 
+def _mark_conversation_messages_read(
+    db: Session,
+    *,
+    conversation_id: int,
+    reader_account_id: int,
+) -> int:
+    messages = (
+        db.query(Message)
+        .filter(
+            Message.conversation_id == conversation_id,
+            Message.sender_id != reader_account_id,
+            Message.is_read.is_(False),
+        )
+        .all()
+    )
+    for message in messages:
+        message.is_read = True
+    return len(messages)
+
+
 def _build_dashboard_context(request: Request, db: Session) -> dict:
     account = _require_web_session(request)
     csrf_token = _ensure_csrf_token(request)
@@ -1314,6 +1334,7 @@ def dashboard_messages(
     except AuthServiceError:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
 
+    session_account = context["account"]
     conversation_rows = context.get("conversations", [])
 
     selected_conversation = None
@@ -1322,6 +1343,22 @@ def dashboard_messages(
             (row for row in conversation_rows if row.conversation_id == conversation_id),
             conversation_rows[0],
         )
+
+    if selected_conversation is not None:
+        marked_count = _mark_conversation_messages_read(
+            db,
+            conversation_id=selected_conversation.conversation_id,
+            reader_account_id=session_account["account_id"],
+        )
+        if marked_count:
+            db.commit()
+            context = _build_dashboard_context(request, db)
+            session_account = context["account"]
+            conversation_rows = context.get("conversations", [])
+            selected_conversation = next(
+                (row for row in conversation_rows if row.conversation_id == selected_conversation.conversation_id),
+                conversation_rows[0] if conversation_rows else None,
+            )
 
     messages = []
     if selected_conversation is not None:

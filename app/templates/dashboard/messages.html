@@ -77,7 +77,6 @@
         {% if selected_conversation %}
         <h2><i class="fa-solid fa-comments" style="margin-right:8px;"></i>Conversation #{{ selected_conversation.conversation_id }}</h2>
         <p class="lead">{{ selected_conversation.participant1_username or "unknown" }} and {{ selected_conversation.participant2_username or "unknown" }}</p>
-        <div class="muted" data-typing-indicator hidden>Typing...</div>
         <div class="message-stack" data-message-stack>
             {% for message in conversation_messages %}
             <div
@@ -98,6 +97,7 @@
         </div>
         <form class="composer" method="post" action="/dashboard/messages/{{ selected_conversation.conversation_id }}/send" data-chat-composer>
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="muted" data-typing-indicator hidden>Typing...</div>
             <label class="muted" for="message_text">Reply</label>
             <div class="chat-composer-row">
                 <div class="chat-composer-field">
@@ -181,6 +181,26 @@
             typingTimeoutId = window.setTimeout(() => {
                 sendTypingStatus(false);
             }, 1200);
+        };
+
+        const clearConversationUnread = (targetConversationId) => {
+            const card = cards.find((item) => Number(item.dataset.conversationId) === Number(targetConversationId));
+            if (!card) return;
+            card.dataset.unreadCount = "0";
+            const countNode = card.querySelector("[data-chat-count]");
+            if (!countNode) return;
+            const suffix = countNode.textContent.includes("·")
+                ? ` · ${countNode.textContent.split("·").slice(1).join("·").trim()}`
+                : "";
+            countNode.textContent = `0 unread${suffix}`;
+        };
+
+        const markConversationRead = () => {
+            if (socket.readyState !== WebSocket.OPEN || !conversationId) return;
+            socket.send(JSON.stringify({
+                action: "mark_conversation_read",
+                conversation_id: conversationId,
+            }));
         };
 
         const normalizeSentAt = (value) => {
@@ -320,7 +340,13 @@
             }
 
             if (payload.type === "bootstrap" || payload.type === "chat.subscribed") {
+                markConversationRead();
                 scrollMessagesToBottomDeferred();
+                return;
+            }
+
+            if (payload.type === "chat.read" && Number(payload.conversation_id || 0) === conversationId) {
+                clearConversationUnread(conversationId);
                 return;
             }
 
@@ -344,6 +370,7 @@
             if (Number(payload.message.sender_id || 0) !== accountId) {
                 window.clearTimeout(remoteTypingTimeoutId);
                 setTypingIndicator("", false);
+                markConversationRead();
             }
             if (Number(payload.message.sender_id || 0) !== accountId) {
                 updateConversationCard(Number(payload.conversation_id || 0), payload.message.sent_at);
@@ -398,6 +425,7 @@
 
         reorderMessageRows();
         refreshDisplayedTimes();
+        clearConversationUnread(conversationId);
         scrollMessagesToBottomDeferred();
         window.addEventListener("load", scrollMessagesToBottomDeferred, { once: true });
     })();

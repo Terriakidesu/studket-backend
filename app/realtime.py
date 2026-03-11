@@ -135,6 +135,26 @@ def _load_user_notifications(db, *, account_id: int) -> list[dict]:
     return [serialize_notification(row) for row in rows]
 
 
+def _mark_conversation_messages_read(
+    db,
+    *,
+    conversation_id: int,
+    reader_account_id: int,
+) -> int:
+    rows = (
+        db.query(Message)
+        .filter(
+            Message.conversation_id == conversation_id,
+            Message.sender_id != reader_account_id,
+            Message.is_read.is_(False),
+        )
+        .all()
+    )
+    for row in rows:
+        row.is_read = True
+    return len(rows)
+
+
 async def _broadcast_message_events(
     *,
     conversation_id: int,
@@ -261,6 +281,31 @@ async def management_socket(websocket: WebSocket):
                             "conversation_id": conversation_id,
                         }
                     )
+                continue
+            if action == "mark_conversation_read":
+                conversation_id = int(data.get("conversation_id") or 0)
+                conversation = (
+                    db.query(Conversation)
+                    .filter(Conversation.conversation_id == conversation_id)
+                    .first()
+                )
+                if conversation is None or account_id not in {conversation.participant1_id, conversation.participant2_id}:
+                    await websocket.send_json({"type": "error", "detail": "Conversation not found"})
+                    continue
+                read_count = _mark_conversation_messages_read(
+                    db,
+                    conversation_id=conversation_id,
+                    reader_account_id=account_id,
+                )
+                if read_count:
+                    db.commit()
+                await websocket.send_json(
+                    {
+                        "type": "chat.read",
+                        "conversation_id": conversation_id,
+                        "read_count": read_count,
+                    }
+                )
                 continue
             if action == "send_message":
                 conversation_id = int(data.get("conversation_id") or 0)
@@ -390,6 +435,31 @@ async def user_socket(websocket: WebSocket, account_id: int):
                             "conversation_id": conversation_id,
                         }
                     )
+                continue
+            if action == "mark_conversation_read":
+                conversation_id = int(data.get("conversation_id") or 0)
+                conversation = (
+                    db.query(Conversation)
+                    .filter(Conversation.conversation_id == conversation_id)
+                    .first()
+                )
+                if conversation is None or account_id not in {conversation.participant1_id, conversation.participant2_id}:
+                    await websocket.send_json({"type": "error", "detail": "Conversation not found"})
+                    continue
+                read_count = _mark_conversation_messages_read(
+                    db,
+                    conversation_id=conversation_id,
+                    reader_account_id=account_id,
+                )
+                if read_count:
+                    db.commit()
+                await websocket.send_json(
+                    {
+                        "type": "chat.read",
+                        "conversation_id": conversation_id,
+                        "read_count": read_count,
+                    }
+                )
                 continue
             if action == "mark_notification_read":
                 notification_id = int(data.get("notification_id") or 0)
