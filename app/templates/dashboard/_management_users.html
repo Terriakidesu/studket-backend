@@ -40,7 +40,6 @@
                         <label class="muted">Account status</label>
                         <select class="input" name="account_status" form="manager-form-{{ manager.account_id }}">
                             <option value="active" {% if manager.account_status == "active" %}selected{% endif %}>active</option>
-                            <option value="suspended" {% if manager.account_status == "suspended" %}selected{% endif %}>suspended</option>
                         </select>
                         <div class="block-spacer">
                             <span class="badge {{ manager.account_status or 'open' }}">{{ manager.account_status or "active" }}</span>

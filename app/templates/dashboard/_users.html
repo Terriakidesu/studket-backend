@@ -29,7 +29,6 @@
                     <option value="all" {% if user_management_status == "all" %}selected{% endif %}>all statuses</option>
                     <option value="active" {% if user_management_status == "active" %}selected{% endif %}>active</option>
                     <option value="warned" {% if user_management_status == "warned" %}selected{% endif %}>warned</option>
-                    <option value="suspended" {% if user_management_status == "suspended" %}selected{% endif %}>suspended</option>
                     <option value="banned" {% if user_management_status == "banned" %}selected{% endif %}>banned</option>
                 </select>
             </div>
@@ -107,7 +106,6 @@
                                 <select class="input" name="account_status" form="user-form-{{ user.account_id }}">
                                     <option value="active" {% if user.account_status == "active" %}selected{% endif %}>active</option>
                                     <option value="warned" {% if user.account_status == "warned" %}selected{% endif %}>warned</option>
-                                    <option value="suspended" {% if user.account_status == "suspended" %}selected{% endif %}>suspended</option>
                                     <option value="banned" {% if user.account_status == "banned" %}selected{% endif %}>banned</option>
                                 </select>
                             </div>

@@ -644,7 +644,7 @@ def _build_user_management_context(
 ) -> dict:
     normalized_query = query_text.strip()
     normalized_status = status_filter.strip().lower() if status_filter else "all"
-    if normalized_status not in {"all", "active", "warned", "suspended", "banned"}:
+    if normalized_status not in {"all", "active", "warned", "banned"}:
         normalized_status = "all"
 
     normalized_role = role_filter.strip().lower() if role_filter else "all"
@@ -779,7 +779,6 @@ def _build_user_management_context(
         ).label("new"),
         func.sum(case((counts_source.c.account_status == "active", 1), else_=0)).label("active"),
         func.sum(case((counts_source.c.account_status == "warned", 1), else_=0)).label("warned"),
-        func.sum(case((counts_source.c.account_status == "suspended", 1), else_=0)).label("suspended"),
         func.sum(case((counts_source.c.account_status == "banned", 1), else_=0)).label("banned"),
     ).one()
 
@@ -804,7 +803,6 @@ def _build_user_management_context(
     status_counts = {
         "active": role_and_status_counts.active or 0,
         "warned": role_and_status_counts.warned or 0,
-        "suspended": role_and_status_counts.suspended or 0,
         "banned": role_and_status_counts.banned or 0,
     }
     serialized_rows = []
@@ -1943,7 +1941,7 @@ def update_management_user(
 
     management_account, management_profile = management_row
     normalized_status = account_status.strip().lower()
-    if normalized_status not in {"active", "suspended"}:
+    if normalized_status != "active":
         normalized_status = management_account.account_status or "active"
 
     management_account.account_status = normalized_status
@@ -2001,7 +1999,7 @@ def update_user_management_account(
         )
 
     normalized_status = account_status.strip().lower()
-    if normalized_status not in {"active", "warned", "suspended", "banned"}:
+    if normalized_status not in {"active", "warned", "banned"}:
         normalized_status = managed_account.account_status or "active"
 
     managed_account.account_status = normalized_status
