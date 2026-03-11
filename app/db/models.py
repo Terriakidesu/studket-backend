@@ -154,6 +154,31 @@ class Conversation(Base):
 
 
 # =========================
+# LISTING INQUIRY
+# =========================
+
+class ListingInquiry(Base):
+    __tablename__ = "listing_inquiry"
+
+    inquiry_id = Column(Integer, primary_key=True)
+
+    listing_id = Column(Integer, ForeignKey("listing.listing_id", ondelete="CASCADE"), nullable=False)
+    conversation_id = Column(Integer, ForeignKey("conversation.conversation_id", ondelete="CASCADE"), nullable=False)
+
+    inquirer_id = Column(Integer, ForeignKey("user_profile.user_id", ondelete="CASCADE"), nullable=False)
+    owner_id = Column(Integer, ForeignKey("user_profile.user_id", ondelete="CASCADE"), nullable=False)
+
+    offered_price = Column(Numeric(10, 2))
+    status = Column(String, default="pending", nullable=False)
+    response_note = Column(Text)
+
+    responded_by = Column(Integer, ForeignKey("user_profile.user_id"))
+    responded_at = Column(TIMESTAMP)
+
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
+
+# =========================
 # MESSAGE
 # =========================
 

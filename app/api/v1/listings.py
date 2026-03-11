@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -8,7 +9,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.api.v1.common import serialize_model
-from app.db.models import Account, Conversation, Listing, ListingMedia, ListingTag, Message, Notification, Tag, UserProfile
+from app.db.models import Account, Conversation, Listing, ListingInquiry, ListingMedia, ListingTag, Message, Notification, Tag, UserProfile
 from app.db.session import get_db
 from app.services.listing_discovery import build_listing_payloads, get_recommended_feed, search_listings
 from app.services.messaging import create_message_record, serialize_message
@@ -19,6 +20,12 @@ router = APIRouter(prefix="/listings", tags=["listings"])
 class ListingInquiryPayload(BaseModel):
     account_id: int
     message_text: str | None = None
+    offered_price: Decimal | None = None
+
+
+class InquiryDecisionPayload(BaseModel):
+    account_id: int
+    response_note: str | None = None
 
 
 def _normalize_listing_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -256,13 +263,63 @@ def _parse_inquiry_listing_id(conversation_type: str | None) -> int | None:
         return None
 
 
-def _present_inquiry_conversation(
-    conversation: Conversation,
+def _get_pending_inquiry(
+    *,
+    listing_id: int,
+    inquirer_id: int,
+    db: Session,
+) -> ListingInquiry | None:
+    return (
+        db.query(ListingInquiry)
+        .filter(
+            ListingInquiry.listing_id == listing_id,
+            ListingInquiry.inquirer_id == inquirer_id,
+            ListingInquiry.status == "pending",
+        )
+        .order_by(ListingInquiry.created_at.desc(), ListingInquiry.inquiry_id.desc())
+        .first()
+    )
+
+
+def _get_inquiry_or_404(
+    *,
+    inquiry_id: int,
+    listing_id: int,
+    db: Session,
+) -> ListingInquiry:
+    inquiry = (
+        db.query(ListingInquiry)
+        .filter(
+            ListingInquiry.inquiry_id == inquiry_id,
+            ListingInquiry.listing_id == listing_id,
+        )
+        .first()
+    )
+    if inquiry is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inquiry not found",
+        )
+    return inquiry
+
+
+def _serialize_inquiry(
+    inquiry: ListingInquiry,
     *,
     listing: Listing,
     account_id: int | None,
     db: Session,
 ) -> dict[str, Any]:
+    conversation = (
+        db.query(Conversation)
+        .filter(Conversation.conversation_id == inquiry.conversation_id)
+        .first()
+    )
+    if conversation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inquiry conversation not found",
+        )
     participant_ids = [participant_id for participant_id in (conversation.participant1_id, conversation.participant2_id) if participant_id is not None]
     account_rows = (
         db.query(Account.account_id, Account.username)
@@ -279,27 +336,29 @@ def _present_inquiry_conversation(
         .first()
     )
 
-    inquirer_id = next(
-        (participant_id for participant_id in participant_ids if participant_id != listing.seller_id),
-        None,
-    )
     payload = {
+        "inquiry_id": inquiry.inquiry_id,
         "conversation_id": conversation.conversation_id,
         "conversation_type": conversation.conversation_type,
         "listing_id": listing.listing_id,
         "listing_type": listing.listing_type,
         "listing_title": listing.title,
         "listing_status": listing.status,
-        "owner_id": listing.seller_id,
-        "owner_username": usernames.get(listing.seller_id),
-        "inquirer_id": inquirer_id,
-        "inquirer_username": usernames.get(inquirer_id),
+        "owner_id": inquiry.owner_id,
+        "owner_username": usernames.get(inquiry.owner_id),
+        "inquirer_id": inquiry.inquirer_id,
+        "inquirer_username": usernames.get(inquiry.inquirer_id),
+        "offered_price": float(inquiry.offered_price) if inquiry.offered_price is not None else None,
+        "status": inquiry.status,
+        "response_note": inquiry.response_note,
+        "responded_by": inquiry.responded_by,
+        "responded_at": inquiry.responded_at,
         "participant1_id": conversation.participant1_id,
         "participant1_username": usernames.get(conversation.participant1_id),
         "participant2_id": conversation.participant2_id,
         "participant2_username": usernames.get(conversation.participant2_id),
         "created_at": conversation.created_at,
-        "is_owner_view": account_id == listing.seller_id,
+        "is_owner_view": account_id == inquiry.owner_id,
     }
     if last_message is not None:
         message_row, sender_username = last_message
@@ -388,26 +447,14 @@ def get_user_inquiries(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     _get_user_account(account_id, db)
-    query = db.query(Conversation).filter(
+    query = db.query(ListingInquiry).filter(
         or_(
-            Conversation.conversation_type.like("listing_inquiry:%"),
-            Conversation.conversation_type.like("looking_for_inquiry:%"),
-        ),
-        or_(
-            Conversation.participant1_id == account_id,
-            Conversation.participant2_id == account_id,
+            ListingInquiry.inquirer_id == account_id,
+            ListingInquiry.owner_id == account_id,
         ),
     )
-    conversations = query.order_by(Conversation.created_at.desc(), Conversation.conversation_id.desc()).all()
-
-    listing_ids = [
-        listing_id
-        for listing_id in (
-            _parse_inquiry_listing_id(conversation.conversation_type)
-            for conversation in conversations
-        )
-        if listing_id is not None
-    ]
+    inquiries = query.order_by(ListingInquiry.created_at.desc(), ListingInquiry.inquiry_id.desc()).all()
+    listing_ids = [inquiry.listing_id for inquiry in inquiries]
     listings = (
         db.query(Listing)
         .filter(Listing.listing_id.in_(listing_ids))
@@ -418,18 +465,15 @@ def get_user_inquiries(
     listings_by_id = {listing.listing_id: listing for listing in listings}
 
     items: list[dict[str, Any]] = []
-    for conversation in conversations:
-        listing_id = _parse_inquiry_listing_id(conversation.conversation_type)
-        if listing_id is None:
-            continue
-        listing = listings_by_id.get(listing_id)
+    for inquiry in inquiries:
+        listing = listings_by_id.get(inquiry.listing_id)
         if listing is None:
             continue
         if listing_type is not None and listing.listing_type != listing_type:
             continue
         items.append(
-            _present_inquiry_conversation(
-                conversation,
+            _serialize_inquiry(
+                inquiry,
                 listing=listing,
                 account_id=account_id,
                 db=db,
@@ -439,7 +483,7 @@ def get_user_inquiries(
     items.sort(
         key=lambda item: (
             item["last_message"]["sent_at"] if item.get("last_message") else "",
-            item["conversation_id"],
+            item["inquiry_id"],
         ),
         reverse=True,
     )
@@ -500,30 +544,24 @@ def get_item_inquiries(
             detail="Listing owner not found",
         )
 
-    inquiry_type = _get_inquiry_conversation_type(listing)
-    query = db.query(Conversation).filter(Conversation.conversation_type == inquiry_type)
+    query = db.query(ListingInquiry).filter(ListingInquiry.listing_id == listing.listing_id)
     if account_id != listing.seller_id:
-        query = query.filter(
-            or_(
-                (Conversation.participant1_id == listing.seller_id) & (Conversation.participant2_id == account_id),
-                (Conversation.participant1_id == account_id) & (Conversation.participant2_id == listing.seller_id),
-            )
-        )
+        query = query.filter(ListingInquiry.inquirer_id == account_id)
 
-    conversations = query.order_by(Conversation.created_at.desc(), Conversation.conversation_id.desc()).all()
+    inquiries = query.order_by(ListingInquiry.created_at.desc(), ListingInquiry.inquiry_id.desc()).all()
     items = [
-        _present_inquiry_conversation(
-            conversation,
+        _serialize_inquiry(
+            inquiry,
             listing=listing,
             account_id=account_id,
             db=db,
         )
-        for conversation in conversations
+        for inquiry in inquiries
     ]
     items.sort(
         key=lambda item: (
             item["last_message"]["sent_at"] if item.get("last_message") else "",
-            item["conversation_id"],
+            item["inquiry_id"],
         ),
         reverse=True,
     )
@@ -558,6 +596,27 @@ def open_item_inquiry(
         )
 
     owner = _get_user_account(listing.seller_id, db)
+    existing_inquiry = _get_pending_inquiry(
+        listing_id=listing.listing_id,
+        inquirer_id=payload.account_id,
+        db=db,
+    )
+    if existing_inquiry is not None:
+        return jsonable_encoder(
+            {
+                "message": "An inquiry is already active",
+                "created": False,
+                "reused": True,
+                "conversation": _serialize_inquiry(
+                    existing_inquiry,
+                    listing=listing,
+                    account_id=payload.account_id,
+                    db=db,
+                ),
+                "initial_message": None,
+            }
+        )
+
     conversation = _find_user_conversation(
         account_id=payload.account_id,
         other_account_id=listing.seller_id,
@@ -565,7 +624,6 @@ def open_item_inquiry(
     )
     if conversation is None:
         conversation = _find_inquiry_conversation(listing=listing, account_id=payload.account_id, db=db)
-    created = False
     if conversation is None:
         conversation = Conversation(
             participant1_id=listing.seller_id,
@@ -574,11 +632,21 @@ def open_item_inquiry(
         )
         db.add(conversation)
         db.flush()
-        created = True
+
+    inquiry = ListingInquiry(
+        listing_id=listing.listing_id,
+        conversation_id=conversation.conversation_id,
+        inquirer_id=payload.account_id,
+        owner_id=listing.seller_id,
+        offered_price=payload.offered_price,
+        status="pending",
+    )
+    db.add(inquiry)
+    db.flush()
 
     message_payload = None
     trimmed_message = (payload.message_text or "").strip()
-    if created and trimmed_message:
+    if trimmed_message:
         message, _, _, _ = create_message_record(
             db,
             conversation_id=conversation.conversation_id,
@@ -600,19 +668,121 @@ def open_item_inquiry(
         )
 
     db.commit()
-    db.refresh(conversation)
+    db.refresh(inquiry)
     return jsonable_encoder(
         {
-            "message": "Inquiry conversation opened" if created else "An inquiry conversation is already active",
-            "created": created,
-            "reused": not created,
-            "conversation": _present_inquiry_conversation(
-                conversation,
+            "message": "Inquiry opened",
+            "created": True,
+            "reused": False,
+            "conversation": _serialize_inquiry(
+                inquiry,
                 listing=listing,
                 account_id=payload.account_id,
                 db=db,
             ),
             "initial_message": message_payload,
+        }
+    )
+
+
+@router.post("/{item_id}/inquiries/{inquiry_id}/accept")
+def accept_item_inquiry(
+    item_id: int,
+    inquiry_id: int,
+    payload: InquiryDecisionPayload,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    _get_user_account(payload.account_id, db)
+    listing = _get_listing(item_id, db)
+    inquiry = _get_inquiry_or_404(inquiry_id=inquiry_id, listing_id=listing.listing_id, db=db)
+    if payload.account_id != inquiry.owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the listing owner can accept an inquiry",
+        )
+    if inquiry.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only pending inquiries can be accepted",
+        )
+
+    inquiry.status = "accepted"
+    inquiry.response_note = (payload.response_note or "").strip() or None
+    inquiry.responded_by = payload.account_id
+    inquiry.responded_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.add(
+        Notification(
+            user_id=inquiry.inquirer_id,
+            notification_type="listing_inquiry_accepted",
+            title="Inquiry accepted",
+            body=f"Your inquiry for {listing.title} was accepted.",
+            related_entity_type="conversation",
+            related_entity_id=inquiry.conversation_id,
+            is_read=False,
+        )
+    )
+    db.commit()
+    db.refresh(inquiry)
+    return jsonable_encoder(
+        {
+            "message": "Inquiry accepted",
+            "inquiry": _serialize_inquiry(
+                inquiry,
+                listing=listing,
+                account_id=payload.account_id,
+                db=db,
+            ),
+        }
+    )
+
+
+@router.post("/{item_id}/inquiries/{inquiry_id}/reject")
+def reject_item_inquiry(
+    item_id: int,
+    inquiry_id: int,
+    payload: InquiryDecisionPayload,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    _get_user_account(payload.account_id, db)
+    listing = _get_listing(item_id, db)
+    inquiry = _get_inquiry_or_404(inquiry_id=inquiry_id, listing_id=listing.listing_id, db=db)
+    if payload.account_id != inquiry.owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the listing owner can reject an inquiry",
+        )
+    if inquiry.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only pending inquiries can be rejected",
+        )
+
+    inquiry.status = "rejected"
+    inquiry.response_note = (payload.response_note or "").strip() or None
+    inquiry.responded_by = payload.account_id
+    inquiry.responded_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.add(
+        Notification(
+            user_id=inquiry.inquirer_id,
+            notification_type="listing_inquiry_rejected",
+            title="Inquiry rejected",
+            body=f"Your inquiry for {listing.title} was rejected.",
+            related_entity_type="conversation",
+            related_entity_id=inquiry.conversation_id,
+            is_read=False,
+        )
+    )
+    db.commit()
+    db.refresh(inquiry)
+    return jsonable_encoder(
+        {
+            "message": "Inquiry rejected",
+            "inquiry": _serialize_inquiry(
+                inquiry,
+                listing=listing,
+                account_id=payload.account_id,
+                db=db,
+            ),
         }
     )
 

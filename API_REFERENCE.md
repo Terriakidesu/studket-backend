@@ -636,6 +636,9 @@ Typical notification types seen in the codebase:
 - `chat_message`
 - `welcome`
 - `seller_verification`
+- `listing_inquiry`
+- `listing_inquiry_accepted`
+- `listing_inquiry_rejected`
 - `listing_removed`
 - `account_warning`
 - `account_status`
@@ -1122,6 +1125,44 @@ Feed item fields:
 - `seller_average_rating` `number | null`
 - `seller_review_count` `integer`
 
+### Listing inquiries
+
+The listings router also manages buyer/requester inquiries for both normal listings and `looking_for` posts.
+
+Inquiry behavior:
+
+- one pending inquiry is allowed per `listing_id + inquirer_id`
+- the chat conversation may be reused between the same two users
+- inquiry status is stored separately from chat as:
+  - `pending`
+  - `accepted`
+  - `rejected`
+- only the listing owner can accept or reject an inquiry
+
+Inquiry payload fields:
+
+- `inquiry_id` `integer`
+- `conversation_id` `integer`
+- `conversation_type` `string | null`
+- `listing_id` `integer`
+- `listing_type` `string | null`
+- `listing_title` `string | null`
+- `listing_status` `string | null`
+- `owner_id` `integer | null`
+- `owner_username` `string | null`
+- `inquirer_id` `integer | null`
+- `inquirer_username` `string | null`
+- `offered_price` `number | null`
+- `status` `string`
+- `response_note` `string | null`
+- `responded_by` `integer | null`
+- `responded_at` `datetime | null`
+- `created_at` `datetime | null`
+- `is_owner_view` `boolean`
+- `last_message` `object | null`
+
+`last_message`, when present, uses the same message shape as `/api/v1/messages`.
+
 ### GET `/api/v1/listings/search`
 
 Searches listings using text, filters, and optional owner filtering.
@@ -1325,6 +1366,251 @@ Response fields:
 Possible errors:
 
 - `404 {"detail":"User account not found"}`
+
+### GET `/api/v1/listings/users/{account_id}/inquiries`
+
+Lists inquiry records involving one user account.
+
+Access:
+
+- User-facing route
+
+Path arguments:
+
+- `account_id` `integer`, required
+  - Must point to an existing `user` account
+
+Query arguments:
+
+- `listing_type` `string | null`, optional
+  - Common values:
+    - `single_item`
+    - `stock_item`
+    - `looking_for`
+
+Behavior notes:
+
+- returns inquiries where the user is either:
+  - the listing owner
+  - the inquirer
+- results are ordered newest first using latest message time, then inquiry id
+
+Response shape:
+
+```json
+{
+  "account_id": 44,
+  "listing_type": null,
+  "count": 1,
+  "items": [
+    {
+      "inquiry_id": 7,
+      "conversation_id": 12,
+      "listing_id": 9,
+      "listing_type": "single_item",
+      "listing_title": "Linear Algebra Book",
+      "owner_id": 44,
+      "inquirer_id": 12,
+      "offered_price": 300,
+      "status": "pending",
+      "last_message": {
+        "message_id": 55,
+        "conversation_id": 12,
+        "sender_id": 12,
+        "sender_username": "campusbuyer1",
+        "message_text": "Is this still available?",
+        "sent_at": "2026-03-11T10:00:00Z",
+        "is_read": false
+      }
+    }
+  ]
+}
+```
+
+Possible errors:
+
+- `404 {"detail":"User account not found"}`
+- `404 {"detail":"User profile not found"}`
+
+### GET `/api/v1/listings/{item_id}/inquiries`
+
+Lists inquiry records for one listing or `looking_for` post.
+
+Access:
+
+- User-facing route
+
+Path arguments:
+
+- `item_id` `integer`, required
+
+Query arguments:
+
+- `account_id` `integer`, required
+
+Behavior notes:
+
+- if `account_id` is the listing owner, all inquiries for that listing are returned
+- otherwise, only that user’s inquiry for the listing is returned
+
+Response shape:
+
+```json
+{
+  "listing_id": 9,
+  "listing_type": "single_item",
+  "account_id": 44,
+  "count": 1,
+  "items": [
+    {
+      "inquiry_id": 7,
+      "conversation_id": 12,
+      "listing_id": 9,
+      "status": "pending"
+    }
+  ]
+}
+```
+
+Possible errors:
+
+- `404 {"detail":"Listing not found"}`
+- `404 {"detail":"User account not found"}`
+- `404 {"detail":"User profile not found"}`
+- `400 {"detail":"Listing owner not found"}`
+
+### POST `/api/v1/listings/{item_id}/inquiries`
+
+Creates a new inquiry for a listing or `looking_for` post.
+
+Access:
+
+- User-facing route
+
+Path arguments:
+
+- `item_id` `integer`, required
+
+Request body:
+
+```json
+{
+  "account_id": 12,
+  "message_text": "Is this still available?",
+  "offered_price": 300
+}
+```
+
+Arguments:
+
+- `account_id` `integer`, required
+- `message_text` `string | null`, optional
+- `offered_price` `number | null`, optional
+
+Behavior notes:
+
+- the caller must be a normal user account with a `UserProfile`
+- the caller cannot inquire on their own listing
+- if a pending inquiry already exists for the same listing and inquirer, the API returns that active inquiry instead of creating another
+- the underlying conversation may be reused if the two users already have a chat thread
+- if `message_text` is provided, the text is posted into the conversation and the owner receives a `listing_inquiry` notification
+
+Response fields:
+
+- `message` `string`
+- `created` `boolean`
+- `reused` `boolean`
+- `conversation` `object`
+  - Serialized inquiry payload
+- `initial_message` `object | null`
+
+Possible errors:
+
+- `404 {"detail":"Listing not found"}`
+- `404 {"detail":"User account not found"}`
+- `404 {"detail":"User profile not found"}`
+- `400 {"detail":"Listing owner not found"}`
+- `400 {"detail":"You cannot open an inquiry on your own listing"}`
+
+### POST `/api/v1/listings/{item_id}/inquiries/{inquiry_id}/accept`
+
+Accepts a pending inquiry.
+
+Access:
+
+- User-facing route
+
+Path arguments:
+
+- `item_id` `integer`, required
+- `inquiry_id` `integer`, required
+
+Request body:
+
+```json
+{
+  "account_id": 44,
+  "response_note": "Let's proceed with this offer."
+}
+```
+
+Arguments:
+
+- `account_id` `integer`, required
+- `response_note` `string | null`, optional
+
+Behavior notes:
+
+- only the listing owner can accept
+- only inquiries with `status = pending` can be accepted
+- on success, the inquirer receives a `listing_inquiry_accepted` notification
+
+Possible errors:
+
+- `404 {"detail":"Listing not found"}`
+- `404 {"detail":"Inquiry not found"}`
+- `403 {"detail":"Only the listing owner can accept an inquiry"}`
+- `400 {"detail":"Only pending inquiries can be accepted"}`
+
+### POST `/api/v1/listings/{item_id}/inquiries/{inquiry_id}/reject`
+
+Rejects a pending inquiry.
+
+Access:
+
+- User-facing route
+
+Path arguments:
+
+- `item_id` `integer`, required
+- `inquiry_id` `integer`, required
+
+Request body:
+
+```json
+{
+  "account_id": 44,
+  "response_note": "I’m not taking this offer."
+}
+```
+
+Arguments:
+
+- `account_id` `integer`, required
+- `response_note` `string | null`, optional
+
+Behavior notes:
+
+- only the listing owner can reject
+- only inquiries with `status = pending` can be rejected
+- on success, the inquirer receives a `listing_inquiry_rejected` notification
+
+Possible errors:
+
+- `404 {"detail":"Listing not found"}`
+- `404 {"detail":"Inquiry not found"}`
+- `403 {"detail":"Only the listing owner can reject an inquiry"}`
+- `400 {"detail":"Only pending inquiries can be rejected"}`
 
 ### GET `/api/v1/listings/{item_id}`
 

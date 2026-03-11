@@ -50,3 +50,4 @@ Thumbs.db
 
 # Runtime-uploaded/generated media
 app/static/profile-pictures/*
+app/static/listing-media/*
