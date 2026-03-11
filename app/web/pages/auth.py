@@ -851,6 +851,7 @@ def dashboard_search(
         listings_query = (
             db.query(
                 Listing.listing_id,
+                Listing.seller_id,
                 Listing.title,
                 Listing.listing_type,
                 Listing.status,

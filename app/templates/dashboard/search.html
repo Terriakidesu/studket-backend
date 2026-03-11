@@ -40,6 +40,7 @@
                             <th>Type</th>
                             <th>Seller</th>
                             <th>Status</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -49,10 +50,24 @@
                             <td>{{ listing.listing_type or "unknown" }}</td>
                             <td>{{ listing.seller_username or "unknown" }}</td>
                             <td>{{ listing.status or "unknown" }}</td>
+                            <td>
+                                <div class="row-actions" style="margin-top:0;">
+                                    <a class="button" href="/dashboard/moderation"><i class="fa-solid fa-arrow-up-right-from-square" style="margin-right:6px;"></i>Open Moderation</a>
+                                    {% if listing.seller_id %}
+                                    <form method="post" action="/dashboard/messages/start">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                        <input type="hidden" name="target_user_id" value="{{ listing.seller_id }}">
+                                        <input type="hidden" name="conversation_type" value="search_listing_followup">
+                                        <input type="hidden" name="initial_message" value="We are contacting you about your listing seen in dashboard search results.">
+                                        <button type="submit"><i class="fa-regular fa-envelope" style="margin-right:6px;"></i>Message Seller</button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </td>
                         </tr>
                         {% else %}
-                        <tr><td colspan="4" class="muted">{% if search_query %}No listing or post results.{% else %}Enter a search term to find listings and posts.{% endif %}</td></tr>
-                    {% endfor %}
+                        <tr><td colspan="5" class="muted">{% if search_query %}No listing or post results.{% else %}Enter a search term to find listings and posts.{% endif %}</td></tr>
+                        {% endfor %}
                 </tbody>
             </table>
             </div>
@@ -71,6 +86,7 @@
                             <th>Role</th>
                             <th>Status</th>
                             <th>Created</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -80,10 +96,27 @@
                             <td>{{ row.account_type }}</td>
                             <td><span class="badge {{ row.account_status or 'open' }}">{{ row.account_status or "active" }}</span></td>
                             <td>{{ row.created_at or "-" }}</td>
+                            <td>
+                                <div class="row-actions" style="margin-top:0;">
+                                    {% if row.account_type == "user" %}
+                                    <form method="post" action="/dashboard/messages/start">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                        <input type="hidden" name="target_user_id" value="{{ row.account_id }}">
+                                        <input type="hidden" name="conversation_type" value="search_user_followup">
+                                        <input type="hidden" name="initial_message" value="We are contacting you from the dashboard regarding your account.">
+                                        <button type="submit"><i class="fa-regular fa-envelope" style="margin-right:6px;"></i>Message User</button>
+                                    </form>
+                                    {% elif row.account_type == "management" and is_superadmin %}
+                                    <a class="button" href="/dashboard/management-users"><i class="fa-solid fa-user-gear" style="margin-right:6px;"></i>Manage Staff</a>
+                                    {% else %}
+                                    <a class="button" href="/dashboard/account"><i class="fa-solid fa-id-card" style="margin-right:6px;"></i>Open Account</a>
+                                    {% endif %}
+                                </div>
+                            </td>
                         </tr>
                         {% else %}
-                        <tr><td colspan="4" class="muted">{% if search_query %}No user or seller results.{% else %}Enter a search term to find users and sellers.{% endif %}</td></tr>
-                    {% endfor %}
+                        <tr><td colspan="5" class="muted">{% if search_query %}No user or seller results.{% else %}Enter a search term to find users and sellers.{% endif %}</td></tr>
+                        {% endfor %}
                 </tbody>
             </table>
             </div>
@@ -102,6 +135,7 @@
                             <th>Actor</th>
                             <th>Action</th>
                             <th>Target</th>
+                            <th>Open</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -111,10 +145,11 @@
                             <td><strong>{{ log.actor_username or "system" }}</strong><br><span class="muted">{{ log.actor_role or "-" }}</span></td>
                             <td><strong>{{ log.action }}</strong>{% if log.details %}<div class="muted">{{ log.details }}</div>{% endif %}</td>
                             <td>{{ log.target_type or "-" }}{% if log.target_label %}<div class="muted">{{ log.target_label }}</div>{% elif log.target_id %}<div class="muted">{{ log.target_id }}</div>{% endif %}</td>
+                            <td><a class="button" href="/dashboard/audit"><i class="fa-solid fa-arrow-up-right-from-square" style="margin-right:6px;"></i>Open Audit</a></td>
                         </tr>
                         {% else %}
-                        <tr><td colspan="4" class="muted">{% if search_query %}No audit log results.{% else %}Enter a search term to search audit logs.{% endif %}</td></tr>
-                    {% endfor %}
+                        <tr><td colspan="5" class="muted">{% if search_query %}No audit log results.{% else %}Enter a search term to search audit logs.{% endif %}</td></tr>
+                        {% endfor %}
                 </tbody>
             </table>
             </div>
