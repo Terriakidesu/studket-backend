@@ -6,9 +6,9 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
 from app.api.v1.common import serialize_model
-from app.db.models import Listing, UserProfile
+from app.db.models import Listing, ListingMedia, UserProfile
 from app.db.session import get_db
-from app.services.listing_discovery import get_recommended_feed, search_listings
+from app.services.listing_discovery import build_listing_payloads, get_recommended_feed, search_listings
 
 router = APIRouter(prefix="/listings", tags=["listings"])
 
@@ -26,6 +26,32 @@ def _serialize_listing(instance: Listing) -> dict[str, Any]:
     payload["owner_id"] = instance.seller_id
     if payload.get("listing_type") == "looking_for":
         payload["poster_id"] = instance.seller_id
+    return payload
+
+
+def _serialize_listing_media_rows(media_rows: list[ListingMedia]) -> list[dict[str, Any]]:
+    return [
+        {
+            "media_id": row.media_id,
+            "listing_id": row.listing_id,
+            "file_path": row.file_path,
+            "file_url": row.file_path,
+            "sort_order": row.sort_order,
+        }
+        for row in media_rows
+    ]
+
+
+def _present_listing_with_media(instance: Listing, db: Session) -> dict[str, Any]:
+    payload = _serialize_listing(instance)
+    media_rows = (
+        db.query(ListingMedia)
+        .filter(ListingMedia.listing_id == instance.listing_id)
+        .order_by(ListingMedia.sort_order.asc(), ListingMedia.media_id.asc())
+        .all()
+    )
+    payload["media"] = _serialize_listing_media_rows(media_rows)
+    payload["primary_media_url"] = payload["media"][0]["file_url"] if payload["media"] else None
     return payload
 
 
@@ -109,13 +135,33 @@ def search(
 @router.get("/")
 def list_items(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
     items = db.query(Listing).all()
-    return jsonable_encoder([_serialize_listing(item) for item in items])
+    return jsonable_encoder([_present_listing_with_media(item, db) for item in items])
 
 
 @router.get("/{item_id}")
 def get_item(item_id: int, db: Session = Depends(get_db)) -> dict[str, Any]:
     instance = _get_listing(item_id, db)
-    return jsonable_encoder(_serialize_listing(instance))
+    return jsonable_encoder(_present_listing_with_media(instance, db))
+
+
+@router.get("/{item_id}/media")
+def get_item_media(item_id: int, db: Session = Depends(get_db)) -> dict[str, Any]:
+    instance = _get_listing(item_id, db)
+    media_rows = (
+        db.query(ListingMedia)
+        .filter(ListingMedia.listing_id == instance.listing_id)
+        .order_by(ListingMedia.sort_order.asc(), ListingMedia.media_id.asc())
+        .all()
+    )
+    media = _serialize_listing_media_rows(media_rows)
+    return jsonable_encoder(
+        {
+            "listing_id": instance.listing_id,
+            "count": len(media),
+            "items": media,
+            "primary_media_url": media[0]["file_url"] if media else None,
+        }
+    )
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
@@ -129,7 +175,7 @@ def create_item(
     db.add(instance)
     db.commit()
     db.refresh(instance)
-    return jsonable_encoder(_serialize_listing(instance))
+    return jsonable_encoder(_present_listing_with_media(instance, db))
 
 
 @router.patch("/{item_id}")
@@ -151,7 +197,7 @@ def update_item(
             setattr(instance, field, value)
     db.commit()
     db.refresh(instance)
-    return jsonable_encoder(_serialize_listing(instance))
+    return jsonable_encoder(_present_listing_with_media(instance, db))
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -11,6 +11,7 @@ from app.api.v1.common import serialize_model
 from app.db.models import (
     Account,
     Listing,
+    ListingMedia,
     ListingTag,
     Review,
     SellerVerificationRequest,
@@ -37,6 +38,34 @@ def _listing_tags_map(db: Session, listing_ids: list[int]) -> dict[int, list[str
     mapping: dict[int, list[str]] = {listing_id: [] for listing_id in listing_ids}
     for listing_id, tag_name in rows:
         mapping.setdefault(listing_id, []).append(tag_name)
+    return mapping
+
+
+def _listing_media_map(db: Session, listing_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+    if not listing_ids:
+        return {}
+
+    rows = (
+        db.query(ListingMedia)
+        .filter(ListingMedia.listing_id.in_(listing_ids))
+        .order_by(
+            ListingMedia.listing_id.asc(),
+            ListingMedia.sort_order.asc(),
+            ListingMedia.media_id.asc(),
+        )
+        .all()
+    )
+    mapping: dict[int, list[dict[str, Any]]] = {listing_id: [] for listing_id in listing_ids}
+    for row in rows:
+        mapping.setdefault(row.listing_id, []).append(
+            {
+                "media_id": row.media_id,
+                "listing_id": row.listing_id,
+                "file_path": row.file_path,
+                "file_url": row.file_path,
+                "sort_order": row.sort_order,
+            }
+        )
     return mapping
 
 
@@ -148,6 +177,7 @@ def _present_listing_payload(payload: dict[str, Any]) -> dict[str, Any]:
 def build_listing_payloads(db: Session, listings: list[Listing]) -> list[dict[str, Any]]:
     listing_ids = [listing.listing_id for listing in listings]
     tags_map = _listing_tags_map(db, listing_ids)
+    media_map = _listing_media_map(db, listing_ids)
     seller_ratings = _seller_rating_map(db)
     verified_sellers = _verified_seller_ids(db)
 
@@ -155,6 +185,10 @@ def build_listing_payloads(db: Session, listings: list[Listing]) -> list[dict[st
     for listing in listings:
         payload = serialize_model(listing)
         payload["tags"] = tags_map.get(listing.listing_id, [])
+        payload["media"] = media_map.get(listing.listing_id, [])
+        payload["primary_media_url"] = (
+            payload["media"][0]["file_url"] if payload["media"] else None
+        )
         rating_data = seller_ratings.get(listing.seller_id or -1, {})
         payload["seller_average_rating"] = rating_data.get("average_rating")
         payload["seller_review_count"] = rating_data.get("review_count", 0)
@@ -180,6 +214,7 @@ def get_recommended_feed(
     listings = [row[0] for row in base_rows]
     listing_ids = [listing.listing_id for listing in listings]
     tags_map = _listing_tags_map(db, listing_ids)
+    media_map = _listing_media_map(db, listing_ids)
     seller_ratings = _seller_rating_map(db)
     verified_sellers = _verified_seller_ids(db)
 
@@ -273,6 +308,10 @@ def get_recommended_feed(
         payload["seller_username"] = item["seller_username"]
         payload["seller_campus"] = item["seller_campus"]
         payload["tags"] = item["tags"]
+        payload["media"] = media_map.get(item["listing"].listing_id, [])
+        payload["primary_media_url"] = (
+            payload["media"][0]["file_url"] if payload["media"] else None
+        )
         payload["recommendation_score"] = item["score"]
         payload["recommendation_reasons"] = item["reasons"]
         payload["seller_is_verified"] = bool(item["listing"].seller_id in verified_sellers)
@@ -338,6 +377,7 @@ def search_listings(
     listings = [row[0] for row in rows]
     listing_ids = [listing.listing_id for listing in listings]
     tags_map = _listing_tags_map(db, listing_ids)
+    media_map = _listing_media_map(db, listing_ids)
     seller_ratings = _seller_rating_map(db)
     verified_sellers = _verified_seller_ids(db)
 
@@ -384,6 +424,10 @@ def search_listings(
         payload["seller_username"] = seller_username
         payload["seller_campus"] = seller_campus
         payload["tags"] = tags_map.get(listing.listing_id, [])
+        payload["media"] = media_map.get(listing.listing_id, [])
+        payload["primary_media_url"] = (
+            payload["media"][0]["file_url"] if payload["media"] else None
+        )
         payload["search_score"] = round(score, 3)
         payload["search_reasons"] = reasons
         payload["seller_is_verified"] = bool(listing.seller_id in verified_sellers)
