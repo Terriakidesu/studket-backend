@@ -6,7 +6,7 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
 from app.api.v1.common import serialize_model
-from app.db.models import Listing, ListingMedia, UserProfile
+from app.db.models import Listing, ListingMedia, ListingTag, Tag, UserProfile
 from app.db.session import get_db
 from app.services.listing_discovery import build_listing_payloads, get_recommended_feed, search_listings
 
@@ -18,6 +18,32 @@ def _normalize_listing_payload(payload: dict[str, Any]) -> dict[str, Any]:
     owner_id = normalized.pop("owner_id", None)
     if owner_id is not None and "seller_id" not in normalized:
         normalized["seller_id"] = owner_id
+    return normalized
+
+
+def _normalize_tag_names(raw_tags: Any) -> list[str]:
+    if raw_tags is None:
+        return []
+    if isinstance(raw_tags, str):
+        values = [raw_tags]
+    elif isinstance(raw_tags, list):
+        values = raw_tags
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="tags must be a string or array of strings",
+        )
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        tag_name = str(value or "").strip().lower()
+        if not tag_name:
+            continue
+        if tag_name in seen:
+            continue
+        seen.add(tag_name)
+        normalized.append(tag_name)
     return normalized
 
 
@@ -44,6 +70,14 @@ def _serialize_listing_media_rows(media_rows: list[ListingMedia]) -> list[dict[s
 
 def _present_listing_with_media(instance: Listing, db: Session) -> dict[str, Any]:
     payload = _serialize_listing(instance)
+    tag_rows = (
+        db.query(Tag.tag_name)
+        .join(ListingTag, ListingTag.tag_id == Tag.tag_id)
+        .filter(ListingTag.listing_id == instance.listing_id)
+        .order_by(Tag.tag_name.asc())
+        .all()
+    )
+    payload["tags"] = [row.tag_name for row in tag_rows]
     media_rows = (
         db.query(ListingMedia)
         .filter(ListingMedia.listing_id == instance.listing_id)
@@ -108,6 +142,34 @@ def _validate_listing_creator(payload: dict[str, Any], db: Session) -> None:
         _require_user_profile(seller_id, db)
         return
     _require_seller_profile(seller_id, db)
+
+
+def _sync_listing_tags(db: Session, *, listing_id: int, tag_names: list[str]) -> None:
+    existing_links = (
+        db.query(ListingTag)
+        .filter(ListingTag.listing_id == listing_id)
+        .all()
+    )
+    existing_by_tag_id = {row.tag_id: row for row in existing_links}
+
+    desired_tag_ids: set[int] = set()
+    for tag_name in tag_names:
+        existing_tag = (
+            db.query(Tag)
+            .filter(Tag.tag_name == tag_name)
+            .first()
+        )
+        if existing_tag is None:
+            existing_tag = Tag(tag_name=tag_name)
+            db.add(existing_tag)
+            db.flush()
+        desired_tag_ids.add(existing_tag.tag_id)
+        if existing_tag.tag_id not in existing_by_tag_id:
+            db.add(ListingTag(listing_id=listing_id, tag_id=existing_tag.tag_id))
+
+    for tag_id, link in existing_by_tag_id.items():
+        if tag_id not in desired_tag_ids:
+            db.delete(link)
 
 
 @router.get("/feed")
@@ -192,9 +254,12 @@ def create_item(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     payload = _normalize_listing_payload(payload)
+    tag_names = _normalize_tag_names(payload.pop("tags", None))
     _validate_listing_creator(payload, db)
     instance = Listing(**payload)
     db.add(instance)
+    db.flush()
+    _sync_listing_tags(db, listing_id=instance.listing_id, tag_names=tag_names)
     db.commit()
     db.refresh(instance)
     return jsonable_encoder(_present_listing_with_media(instance, db))
@@ -207,6 +272,8 @@ def update_item(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     payload = _normalize_listing_payload(payload)
+    tags_provided = "tags" in payload
+    tag_names = _normalize_tag_names(payload.pop("tags", None)) if tags_provided else []
     instance = _get_listing(item_id, db)
     if "seller_id" in payload or "listing_type" in payload:
         next_payload = {
@@ -217,6 +284,8 @@ def update_item(
     for field, value in payload.items():
         if hasattr(instance, field):
             setattr(instance, field, value)
+    if tags_provided:
+        _sync_listing_tags(db, listing_id=instance.listing_id, tag_names=tag_names)
     db.commit()
     db.refresh(instance)
     return jsonable_encoder(_present_listing_with_media(instance, db))
