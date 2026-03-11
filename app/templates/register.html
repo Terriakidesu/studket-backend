@@ -284,8 +284,8 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <div class="role-picker">
                 <div class="role-track">
-                    <label class="role-option {% if active_role != 'superadmin' %}active{% endif %}" data-role-card="management">
-                        <input type="radio" name="account_type" value="management" {% if active_role != "superadmin" %}checked{% endif %}>
+                    <label class="role-option {% if active_role == 'management' %}active{% endif %}" data-role-card="management">
+                        <input type="radio" name="account_type" value="management" {% if active_role == "management" %}checked{% endif %}>
                         <span>Management</span>
                     </label>
                     <label class="role-option {% if active_role == 'superadmin' %}active{% endif %}" data-role-card="superadmin">
