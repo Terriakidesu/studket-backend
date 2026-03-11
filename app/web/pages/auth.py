@@ -34,6 +34,13 @@ from app.services.auth import (
     register_account,
     set_management_session_timeout_minutes,
 )
+from app.services.messaging import (
+    create_message_record,
+    create_user_notification,
+    serialize_message,
+    serialize_notification,
+)
+from app.services.realtime import realtime_hub, run_async_from_sync
 
 router = APIRouter(tags=["web-auth"])
 templates = Jinja2Templates(directory="app/templates")
@@ -160,6 +167,59 @@ def _render_auth_page(
             "session_account": _get_session_account(request),
         },
         status_code=status_code,
+    )
+
+
+def _dispatch_account_event(account_id: int, payload: dict) -> None:
+    try:
+        run_async_from_sync(realtime_hub.send_account_event, account_id, payload)
+    except RuntimeError:
+        pass
+
+
+def _dispatch_conversation_event(conversation_id: int, payload: dict) -> None:
+    try:
+        run_async_from_sync(realtime_hub.broadcast_conversation, conversation_id, payload)
+    except RuntimeError:
+        pass
+
+
+def _dispatch_management_event(payload: dict) -> None:
+    try:
+        run_async_from_sync(realtime_hub.broadcast_management_event, payload)
+    except RuntimeError:
+        pass
+
+
+def _create_user_notification_payload(
+    db: Session,
+    *,
+    user_id: int,
+    notification_type: str,
+    title: str,
+    body: str,
+    related_entity_type: str | None = None,
+    related_entity_id: int | None = None,
+) -> dict:
+    notification = create_user_notification(
+        db,
+        user_id=user_id,
+        notification_type=notification_type,
+        title=title,
+        body=body,
+        related_entity_type=related_entity_type,
+        related_entity_id=related_entity_id,
+    )
+    return serialize_notification(notification)
+
+
+def _emit_user_notification(account_id: int, payload: dict) -> None:
+    _dispatch_account_event(
+        account_id,
+        {
+            "type": "notification.created",
+            "notification": payload,
+        },
     )
 
 
@@ -1515,6 +1575,7 @@ def approve_verification(
     if verification_request is None:
         return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
+    notification_payload = None
     verification_request.status = "approved"
     verification_request.review_note = review_note.strip() or None
     verification_request.reviewed_by = account["account_id"]
@@ -1527,6 +1588,15 @@ def approve_verification(
     )
     if user_profile:
         user_profile.is_verified = True
+    notification_payload = _create_user_notification_payload(
+        db,
+        user_id=verification_request.user_id,
+        notification_type="seller_verification",
+        title="Seller verification approved",
+        body="Your seller verification request was approved.",
+        related_entity_type="seller_verification_request",
+        related_entity_id=verification_request.request_id,
+    )
 
     create_audit_log(
         db,
@@ -1540,6 +1610,8 @@ def approve_verification(
         details=review_note.strip() or "Approved seller verification request",
     )
     db.commit()
+    if notification_payload is not None:
+        _emit_user_notification(verification_request.user_id, notification_payload)
     return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -1565,6 +1637,7 @@ def reject_verification(
     if verification_request is None:
         return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
+    notification_payload = None
     verification_request.status = "rejected"
     verification_request.review_note = review_note.strip() or None
     verification_request.reviewed_by = account["account_id"]
@@ -1576,6 +1649,15 @@ def reject_verification(
     )
     if user_profile:
         user_profile.is_verified = False
+    notification_payload = _create_user_notification_payload(
+        db,
+        user_id=verification_request.user_id,
+        notification_type="seller_verification",
+        title="Seller verification rejected",
+        body="Your seller verification request was rejected.",
+        related_entity_type="seller_verification_request",
+        related_entity_id=verification_request.request_id,
+    )
     create_audit_log(
         db,
         actor_account_id=account["account_id"],
@@ -1588,6 +1670,8 @@ def reject_verification(
         details=review_note.strip() or "Rejected seller verification request",
     )
     db.commit()
+    if notification_payload is not None:
+        _emit_user_notification(verification_request.user_id, notification_payload)
     return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -1607,6 +1691,18 @@ def delete_listing(
     listing = db.query(Listing).filter(Listing.listing_id == listing_id).first()
     if listing is not None:
         session_account = _get_session_account(request)
+        notification_payload = None
+        seller_account_id = listing.seller_id
+        if seller_account_id is not None:
+            notification_payload = _create_user_notification_payload(
+                db,
+                user_id=seller_account_id,
+                notification_type="listing_removed",
+                title="Listing removed",
+                body=f"Your listing \"{listing.title}\" was removed by management.",
+                related_entity_type="listing",
+                related_entity_id=listing.listing_id,
+            )
         if session_account:
             create_audit_log(
                 db,
@@ -1621,6 +1717,8 @@ def delete_listing(
             )
         db.delete(listing)
         db.commit()
+        if seller_account_id is not None and notification_payload is not None:
+            _emit_user_notification(seller_account_id, notification_payload)
     return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -1645,10 +1743,20 @@ def warn_seller(
     if seller is None:
         return RedirectResponse(url="/dashboard/moderation", status_code=status.HTTP_303_SEE_OTHER)
 
+    notification_payload = None
     seller.warning_count = (seller.warning_count or 0) + 1
     seller.last_warned_at = datetime.now(timezone.utc)
     if seller.account_status != "banned":
         seller.account_status = "warned"
+    notification_payload = _create_user_notification_payload(
+        db,
+        user_id=seller.account_id,
+        notification_type="account_warning",
+        title="Account warning issued",
+        body=f"Management issued warning #{seller.warning_count} on your account.",
+        related_entity_type="account",
+        related_entity_id=seller.account_id,
+    )
 
     create_audit_log(
         db,
@@ -1662,6 +1770,8 @@ def warn_seller(
         details=f"Issued warning #{seller.warning_count}",
     )
     db.commit()
+    if notification_payload is not None:
+        _emit_user_notification(seller.account_id, notification_payload)
     return RedirectResponse(url="/dashboard/moderation", status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -1687,6 +1797,15 @@ def ban_seller(
         return RedirectResponse(url="/dashboard/moderation", status_code=status.HTTP_303_SEE_OTHER)
 
     seller.account_status = "banned"
+    notification_payload = _create_user_notification_payload(
+        db,
+        user_id=seller.account_id,
+        notification_type="account_status",
+        title="Account banned",
+        body="Your account was banned by management.",
+        related_entity_type="account",
+        related_entity_id=seller.account_id,
+    )
 
     create_audit_log(
         db,
@@ -1700,6 +1819,7 @@ def ban_seller(
         details="Banned seller from dashboard moderation",
     )
     db.commit()
+    _emit_user_notification(seller.account_id, notification_payload)
     return RedirectResponse(url="/dashboard/moderation", status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -1717,38 +1837,26 @@ def send_dashboard_message(
     except AuthServiceError:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
 
-    conversation = (
-        db.query(Conversation)
-        .filter(Conversation.conversation_id == conversation_id)
-        .first()
-    )
-    if conversation is None:
-        return RedirectResponse(url="/dashboard/messages", status_code=status.HTTP_303_SEE_OTHER)
-
-    participant_types = {
-        row.account_type
-        for row in db.query(Account.account_type)
-        .filter(Account.account_id.in_([conversation.participant1_id, conversation.participant2_id]))
-        .all()
-    }
-    if not (("user" in participant_types) and participant_types.intersection(WEB_ALLOWED_ACCOUNT_TYPES)):
-        return RedirectResponse(url="/dashboard/messages", status_code=status.HTTP_303_SEE_OTHER)
-
-    trimmed_message = message_text.strip()
-    if not trimmed_message:
-        return RedirectResponse(
-            url=f"/dashboard/messages?conversation_id={conversation_id}",
-            status_code=status.HTTP_303_SEE_OTHER,
-        )
-
-    db.add(
-        Message(
+    try:
+        message, conversation, sender, recipient = create_message_record(
+            db,
             conversation_id=conversation_id,
             sender_id=account["account_id"],
-            message_text=trimmed_message,
-            is_read=False,
+            message_text=message_text,
         )
-    )
+    except ValueError:
+        return RedirectResponse(url="/dashboard/messages", status_code=status.HTTP_303_SEE_OTHER)
+    notification_payload = None
+    if recipient is not None and recipient.account_type == "user":
+        notification_payload = _create_user_notification_payload(
+            db,
+            user_id=recipient.account_id,
+            notification_type="chat_message",
+            title=f"New message from {sender.username}",
+            body=message.message_text,
+            related_entity_type="conversation",
+            related_entity_id=conversation_id,
+        )
     create_audit_log(
         db,
         actor_account_id=account["account_id"],
@@ -1761,6 +1869,18 @@ def send_dashboard_message(
         details="Sent message from dashboard chat UI",
     )
     db.commit()
+    message_payload = serialize_message(message, sender_username=sender.username)
+    chat_event = {
+        "type": "chat.message",
+        "conversation_id": conversation_id,
+        "message": message_payload,
+    }
+    _dispatch_conversation_event(conversation_id, chat_event)
+    _dispatch_account_event(account["account_id"], chat_event)
+    if recipient is not None:
+        _dispatch_account_event(recipient.account_id, chat_event)
+        if notification_payload is not None:
+            _emit_user_notification(recipient.account_id, notification_payload)
     return RedirectResponse(
         url=f"/dashboard/messages?conversation_id={conversation_id}",
         status_code=status.HTTP_303_SEE_OTHER,
@@ -1797,16 +1917,27 @@ def start_dashboard_message(
         conversation_type=conversation_type.strip() or "staff_support",
     )
 
+    message_payload = None
+    notification_payload = None
     trimmed_message = initial_message.strip()
     if trimmed_message:
-        db.add(
-            Message(
-                conversation_id=conversation.conversation_id,
-                sender_id=account["account_id"],
-                message_text=trimmed_message,
-                is_read=False,
-            )
+        message, _, sender, recipient = create_message_record(
+            db,
+            conversation_id=conversation.conversation_id,
+            sender_id=account["account_id"],
+            message_text=trimmed_message,
         )
+        message_payload = serialize_message(message, sender_username=sender.username)
+        if recipient is not None and recipient.account_type == "user":
+            notification_payload = _create_user_notification_payload(
+                db,
+                user_id=recipient.account_id,
+                notification_type="chat_message",
+                title=f"New message from {sender.username}",
+                body=message.message_text,
+                related_entity_type="conversation",
+                related_entity_id=conversation.conversation_id,
+            )
 
     create_audit_log(
         db,
@@ -1820,6 +1951,17 @@ def start_dashboard_message(
         details=f"Opened staff conversation with user {target_user_id}",
     )
     db.commit()
+    if message_payload is not None:
+        chat_event = {
+            "type": "chat.message",
+            "conversation_id": conversation.conversation_id,
+            "message": message_payload,
+        }
+        _dispatch_conversation_event(conversation.conversation_id, chat_event)
+        _dispatch_account_event(account["account_id"], chat_event)
+        _dispatch_account_event(target_user_id, chat_event)
+    if notification_payload is not None:
+        _emit_user_notification(target_user_id, notification_payload)
     return RedirectResponse(
         url=f"/dashboard/messages?conversation_id={conversation.conversation_id}",
         status_code=status.HTTP_303_SEE_OTHER,
@@ -1856,6 +1998,15 @@ def unban_seller(
         )
 
     seller.account_status = "active"
+    notification_payload = _create_user_notification_payload(
+        db,
+        user_id=seller.account_id,
+        notification_type="account_status",
+        title="Account restored",
+        body="Your account was restored by management.",
+        related_entity_type="account",
+        related_entity_id=seller.account_id,
+    )
 
     create_audit_log(
         db,
@@ -1869,6 +2020,7 @@ def unban_seller(
         details="Restored seller access from dashboard moderation",
     )
     db.commit()
+    _emit_user_notification(seller.account_id, notification_payload)
     return RedirectResponse(
         url=_build_moderation_redirect_url(
             banned_query=banned_q,
@@ -2002,7 +2154,19 @@ def update_user_management_account(
     if normalized_status not in {"active", "warned", "banned"}:
         normalized_status = managed_account.account_status or "active"
 
+    previous_status = managed_account.account_status or "active"
     managed_account.account_status = normalized_status
+    notification_payload = None
+    if previous_status != managed_account.account_status:
+        notification_payload = _create_user_notification_payload(
+            db,
+            user_id=managed_account.account_id,
+            notification_type="account_status",
+            title="Account status updated",
+            body=f"Your account status is now {managed_account.account_status}.",
+            related_entity_type="account",
+            related_entity_id=managed_account.account_id,
+        )
 
     create_audit_log(
         db,
@@ -2016,6 +2180,8 @@ def update_user_management_account(
         details=f"Updated user account status to {managed_account.account_status}",
     )
     db.commit()
+    if notification_payload is not None:
+        _emit_user_notification(managed_account.account_id, notification_payload)
     return RedirectResponse(
         url=_build_user_management_redirect_url(
             query=q,

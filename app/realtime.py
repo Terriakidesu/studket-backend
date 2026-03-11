@@ -1,0 +1,402 @@
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from sqlalchemy import and_, func, or_
+from sqlalchemy.orm import aliased
+
+from app.db.models import (
+    Account,
+    Conversation,
+    ListingReport,
+    LookingForReport,
+    Message,
+    Notification,
+    SellerReport,
+    SellerVerificationRequest,
+)
+from app.db.session import SessionLocal
+from app.services.messaging import (
+    create_message_record,
+    create_user_notification,
+    serialize_message,
+    serialize_notification,
+)
+from app.services.realtime import realtime_hub
+
+router = APIRouter(tags=["realtime"])
+MANAGEMENT_ACCOUNT_TYPES = {"management", "superadmin"}
+
+
+def _management_socket_account(websocket: WebSocket) -> dict | None:
+    account = websocket.session.get("account")
+    if not account:
+        return None
+
+    expires_at = websocket.session.get("account_expires_at")
+    if expires_at:
+        try:
+            expiry = datetime.fromisoformat(expires_at)
+        except ValueError:
+            websocket.session.pop("account", None)
+            websocket.session.pop("account_expires_at", None)
+            return None
+        if expiry <= datetime.now(timezone.utc):
+            websocket.session.pop("account", None)
+            websocket.session.pop("account_expires_at", None)
+            return None
+
+    if account.get("account_type") not in MANAGEMENT_ACCOUNT_TYPES:
+        return None
+    return account
+
+
+def _subscribe_existing_conversations(db, websocket: WebSocket, *, account_id: int) -> list[int]:
+    conversation_ids = [
+        row.conversation_id
+        for row in db.query(Conversation.conversation_id)
+        .filter(
+            or_(
+                Conversation.participant1_id == account_id,
+                Conversation.participant2_id == account_id,
+            )
+        )
+        .all()
+    ]
+    for conversation_id in conversation_ids:
+        realtime_hub.subscribe_conversation(websocket, conversation_id=conversation_id)
+    return conversation_ids
+
+
+def _load_conversation_summaries(db, *, account_id: int) -> list[dict]:
+    other = aliased(Account)
+    rows = (
+        db.query(
+            Conversation.conversation_id,
+            Conversation.conversation_type,
+            func.max(Message.sent_at).label("last_message_at"),
+            func.count(Message.message_id).label("message_count"),
+            other.account_id.label("other_account_id"),
+            other.username.label("other_username"),
+            other.account_type.label("other_account_type"),
+        )
+        .outerjoin(Message, Message.conversation_id == Conversation.conversation_id)
+        .join(
+            other,
+            or_(
+                and_(
+                    Conversation.participant1_id == account_id,
+                    other.account_id == Conversation.participant2_id,
+                ),
+                and_(
+                    Conversation.participant2_id == account_id,
+                    other.account_id == Conversation.participant1_id,
+                ),
+            ),
+        )
+        .filter(
+            or_(
+                Conversation.participant1_id == account_id,
+                Conversation.participant2_id == account_id,
+            )
+        )
+        .group_by(
+            Conversation.conversation_id,
+            Conversation.conversation_type,
+            other.account_id,
+            other.username,
+            other.account_type,
+        )
+        .order_by(func.max(Message.sent_at).desc().nullslast(), Conversation.conversation_id.desc())
+        .limit(20)
+        .all()
+    )
+    return [
+        {
+            "conversation_id": row.conversation_id,
+            "conversation_type": row.conversation_type,
+            "last_message_at": row.last_message_at.isoformat() if row.last_message_at else None,
+            "message_count": row.message_count,
+            "other_account_id": row.other_account_id,
+            "other_username": row.other_username,
+            "other_account_type": row.other_account_type,
+        }
+        for row in rows
+    ]
+
+
+def _load_user_notifications(db, *, account_id: int) -> list[dict]:
+    rows = (
+        db.query(Notification)
+        .filter(Notification.user_id == account_id)
+        .order_by(Notification.created_at.desc(), Notification.notification_id.desc())
+        .limit(20)
+        .all()
+    )
+    return [serialize_notification(row) for row in rows]
+
+
+async def _broadcast_message_events(
+    *,
+    conversation_id: int,
+    payload: dict,
+    sender_account_id: int,
+    recipient_account: Account | None,
+    notification_payload: dict | None = None,
+) -> None:
+    await realtime_hub.broadcast_conversation(
+        conversation_id,
+        {
+            "type": "chat.message",
+            "conversation_id": conversation_id,
+            "message": payload,
+        },
+    )
+    await realtime_hub.send_account_event(
+        sender_account_id,
+        {
+            "type": "chat.message",
+            "conversation_id": conversation_id,
+            "message": payload,
+        },
+    )
+    if recipient_account is not None:
+        await realtime_hub.send_account_event(
+            recipient_account.account_id,
+            {
+                "type": "chat.message",
+                "conversation_id": conversation_id,
+                "message": payload,
+            },
+        )
+        if notification_payload is not None:
+            await realtime_hub.send_account_event(
+                recipient_account.account_id,
+                {
+                    "type": "notification.created",
+                    "notification": notification_payload,
+                },
+            )
+        if recipient_account.account_type in MANAGEMENT_ACCOUNT_TYPES:
+            await realtime_hub.broadcast_management_event(
+                {
+                    "type": "management.notification",
+                    "category": "chat",
+                    "title": "New user message",
+                    "body": f"{payload.get('sender_username') or 'A user'} sent a message.",
+                    "conversation_id": conversation_id,
+                    "account_id": recipient_account.account_id,
+                }
+            )
+
+
+@router.websocket("/ws/management")
+async def management_socket(websocket: WebSocket):
+    session_account = _management_socket_account(websocket)
+    if session_account is None:
+        await websocket.close(code=1008)
+        return
+
+    account_id = int(session_account["account_id"])
+    db = SessionLocal()
+    try:
+        await realtime_hub.connect_account(websocket, account_id=account_id)
+        await realtime_hub.connect_management(websocket)
+        conversation_ids = _subscribe_existing_conversations(db, websocket, account_id=account_id)
+
+        pending_verifications = (
+            db.query(func.count(SellerVerificationRequest.request_id))
+            .filter(SellerVerificationRequest.status == "pending")
+            .scalar()
+            or 0
+        )
+        open_reports = (
+            (db.query(func.count(ListingReport.report_id)).filter(ListingReport.status == "open").scalar() or 0)
+            + (db.query(func.count(LookingForReport.report_id)).filter(LookingForReport.status == "open").scalar() or 0)
+            + (db.query(func.count(SellerReport.report_id)).filter(SellerReport.status == "open").scalar() or 0)
+        )
+
+        await websocket.send_json(
+            {
+                "type": "bootstrap",
+                "channel": "management",
+                "account": session_account,
+                "conversation_ids": conversation_ids,
+                "conversations": _load_conversation_summaries(db, account_id=account_id),
+                "summary": {
+                    "pending_verifications": pending_verifications,
+                    "open_reports": open_reports,
+                },
+            }
+        )
+
+        while True:
+            data = await websocket.receive_json()
+            action = str(data.get("action") or "").strip().lower()
+            if action == "ping":
+                await websocket.send_json({"type": "pong"})
+                continue
+            if action == "subscribe_conversation":
+                conversation_id = int(data.get("conversation_id") or 0)
+                conversation = (
+                    db.query(Conversation)
+                    .filter(Conversation.conversation_id == conversation_id)
+                    .first()
+                )
+                if conversation and account_id in {conversation.participant1_id, conversation.participant2_id}:
+                    realtime_hub.subscribe_conversation(websocket, conversation_id=conversation_id)
+                    await websocket.send_json(
+                        {
+                            "type": "chat.subscribed",
+                            "conversation_id": conversation_id,
+                        }
+                    )
+                continue
+            if action == "send_message":
+                conversation_id = int(data.get("conversation_id") or 0)
+                message_text = str(data.get("message_text") or "")
+                message, _, sender, recipient = create_message_record(
+                    db,
+                    conversation_id=conversation_id,
+                    sender_id=account_id,
+                    message_text=message_text,
+                )
+                notification_payload = None
+                if recipient is not None and recipient.account_type == "user":
+                    notification = create_user_notification(
+                        db,
+                        user_id=recipient.account_id,
+                        notification_type="chat_message",
+                        title=f"New message from {sender.username}",
+                        body=message.message_text,
+                        related_entity_type="conversation",
+                        related_entity_id=conversation_id,
+                    )
+                    notification_payload = serialize_notification(notification)
+                db.commit()
+                payload = serialize_message(message, sender_username=sender.username)
+                await _broadcast_message_events(
+                    conversation_id=conversation_id,
+                    payload=payload,
+                    sender_account_id=account_id,
+                    recipient_account=recipient,
+                    notification_payload=notification_payload,
+                )
+                continue
+
+            await websocket.send_json({"type": "error", "detail": "Unsupported action"})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        realtime_hub.disconnect(websocket, account_id=account_id)
+        db.close()
+
+
+@router.websocket("/ws/users/{account_id}")
+async def user_socket(websocket: WebSocket, account_id: int):
+    db = SessionLocal()
+    try:
+        account = (
+            db.query(Account)
+            .filter(Account.account_id == account_id, Account.account_type == "user")
+            .first()
+        )
+        if account is None or account.account_status == "banned":
+            await websocket.close(code=1008)
+            return
+
+        await realtime_hub.connect_account(websocket, account_id=account_id)
+        conversation_ids = _subscribe_existing_conversations(db, websocket, account_id=account_id)
+        await websocket.send_json(
+            {
+                "type": "bootstrap",
+                "channel": "user",
+                "account": {
+                    "account_id": account.account_id,
+                    "username": account.username,
+                    "account_type": account.account_type,
+                    "account_status": account.account_status,
+                },
+                "conversation_ids": conversation_ids,
+                "conversations": _load_conversation_summaries(db, account_id=account_id),
+                "notifications": _load_user_notifications(db, account_id=account_id),
+            }
+        )
+
+        while True:
+            data = await websocket.receive_json()
+            action = str(data.get("action") or "").strip().lower()
+            if action == "ping":
+                await websocket.send_json({"type": "pong"})
+                continue
+            if action == "subscribe_conversation":
+                conversation_id = int(data.get("conversation_id") or 0)
+                conversation = (
+                    db.query(Conversation)
+                    .filter(Conversation.conversation_id == conversation_id)
+                    .first()
+                )
+                if conversation and account_id in {conversation.participant1_id, conversation.participant2_id}:
+                    realtime_hub.subscribe_conversation(websocket, conversation_id=conversation_id)
+                    await websocket.send_json(
+                        {
+                            "type": "chat.subscribed",
+                            "conversation_id": conversation_id,
+                        }
+                    )
+                continue
+            if action == "mark_notification_read":
+                notification_id = int(data.get("notification_id") or 0)
+                notification = (
+                    db.query(Notification)
+                    .filter(Notification.notification_id == notification_id, Notification.user_id == account_id)
+                    .first()
+                )
+                if notification is not None:
+                    notification.is_read = True
+                    notification.read_at = datetime.now(timezone.utc)
+                    db.commit()
+                    await websocket.send_json(
+                        {
+                            "type": "notification.updated",
+                            "notification": serialize_notification(notification),
+                        }
+                    )
+                continue
+            if action == "send_message":
+                conversation_id = int(data.get("conversation_id") or 0)
+                message_text = str(data.get("message_text") or "")
+                message, _, sender, recipient = create_message_record(
+                    db,
+                    conversation_id=conversation_id,
+                    sender_id=account_id,
+                    message_text=message_text,
+                )
+                notification_payload = None
+                if recipient is not None and recipient.account_type == "user":
+                    notification = create_user_notification(
+                        db,
+                        user_id=recipient.account_id,
+                        notification_type="chat_message",
+                        title=f"New message from {sender.username}",
+                        body=message.message_text,
+                        related_entity_type="conversation",
+                        related_entity_id=conversation_id,
+                    )
+                    notification_payload = serialize_notification(notification)
+                db.commit()
+                payload = serialize_message(message, sender_username=sender.username)
+                await _broadcast_message_events(
+                    conversation_id=conversation_id,
+                    payload=payload,
+                    sender_account_id=account_id,
+                    recipient_account=recipient,
+                    notification_payload=notification_payload,
+                )
+                continue
+
+            await websocket.send_json({"type": "error", "detail": "Unsupported action"})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        realtime_hub.disconnect(websocket, account_id=account_id)
+        db.close()

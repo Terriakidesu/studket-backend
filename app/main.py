@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from app import api, web
+from app import api, realtime, web
 from app.core.security import SESSION_SECRET
 from app.db.create_tables import create_tables
 
@@ -37,3 +37,4 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 app.include_router(web.router)
 app.include_router(api.router)
+app.include_router(realtime.router)
