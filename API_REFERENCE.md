@@ -1087,6 +1087,8 @@ Response shape:
       "title": "Linear Algebra Book",
       "description": "Used but clean",
       "price": 350.0,
+      "budget_min": null,
+      "budget_max": null,
       "listing_type": "single_item",
       "condition": "used",
       "status": "available",
@@ -1217,6 +1219,8 @@ Response shape:
       "title": "Linear Algebra Book",
       "description": "Used but clean",
       "price": 350.0,
+      "budget_min": null,
+      "budget_max": null,
       "listing_type": "single_item",
       "condition": "used",
       "status": "available",
@@ -1262,6 +1266,9 @@ Response:
 - Array of serialized listings
 - Includes:
   - all table columns
+  - `price`
+  - `budget_min`
+  - `budget_max`
   - `owner_id`
   - `share_token`
   - `share_url`
@@ -1358,6 +1365,9 @@ Response shape:
       "owner_id": 44,
       "poster_id": 44,
       "title": "Looking for a used calculator",
+      "price": 500,
+      "budget_min": 400,
+      "budget_max": 650,
       "listing_type": "looking_for",
       "status": "available",
       "tags": ["calculator"],
@@ -1768,6 +1778,10 @@ Request body fields:
 - `title` `string`, required by database model
 - `description` `string | null`, optional
 - `price` `number | null`, optional
+- `budget_min` `number | null`, optional
+  - Intended for `looking_for` posts
+- `budget_max` `number | null`, optional
+  - Intended for `looking_for` posts
 - `listing_type` `string | null`, optional
   - Important values:
     - `single_item`
@@ -1783,6 +1797,8 @@ Validation rules:
   - `owner_id` or `seller_id`
 - For `looking_for`:
   - the creator only needs an existing `UserProfile`
+  - `budget_min` and `budget_max` are accepted
+  - if both are provided, `budget_min` cannot be greater than `budget_max`
 - For normal listings:
   - the creator must have an existing `UserProfile`
   - the creator must have seller access enabled
@@ -1812,6 +1828,8 @@ Looking-for post:
   "title": "Looking for a used calculator",
   "description": "Need one before finals week",
   "price": 500,
+  "budget_min": 400,
+  "budget_max": 650,
   "listing_type": "looking_for",
   "status": "available"
 }
@@ -1820,6 +1838,7 @@ Looking-for post:
 Possible errors:
 
 - `400 {"detail":"seller_id is required"}`
+- `400 {"detail":"budget_min cannot be greater than budget_max"}`
 - `404 {"detail":"User profile not found"}`
 - `403 {"detail":"Seller access required for normal listings"}`
 
@@ -1839,10 +1858,13 @@ Request body:
 
 - Any writable `Listing` field
 - `owner_id` may be used instead of `seller_id`
+- `budget_min` and `budget_max` may be used for `looking_for` posts
 
 Validation notes:
 
 - If `seller_id`, `owner_id`, or `listing_type` changes, creator-role validation runs again.
+- If the effective listing type is `looking_for`, `budget_min <= budget_max` is enforced.
+- If the listing is changed away from `looking_for`, stored `budget_min` and `budget_max` are cleared.
 - The validation only checks that the owner has a valid `UserProfile`.
 
 ### DELETE `/api/v1/listings/{item_id}`

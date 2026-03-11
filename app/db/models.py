@@ -78,6 +78,8 @@ class Listing(Base):
     description = Column(Text)
 
     price = Column(Numeric(10, 2))
+    budget_min = Column(Numeric(10, 2))
+    budget_max = Column(Numeric(10, 2))
 
     listing_type = Column(String)  # single_item | stock_item
     condition = Column(String)

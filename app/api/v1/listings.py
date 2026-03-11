@@ -34,7 +34,30 @@ def _normalize_listing_payload(payload: dict[str, Any]) -> dict[str, Any]:
     owner_id = normalized.pop("owner_id", None)
     if owner_id is not None and "seller_id" not in normalized:
         normalized["seller_id"] = owner_id
+    if "budget_min" in normalized and normalized.get("budget_min") == "":
+        normalized["budget_min"] = None
+    if "budget_max" in normalized and normalized.get("budget_max") == "":
+        normalized["budget_max"] = None
+    listing_type = normalized.get("listing_type")
+    if listing_type is not None and listing_type != "looking_for":
+        normalized["budget_min"] = None
+        normalized["budget_max"] = None
     return normalized
+
+
+def _validate_budget_fields(
+    *,
+    listing_type: str | None,
+    budget_min: Any,
+    budget_max: Any,
+) -> None:
+    if listing_type != "looking_for":
+        return
+    if budget_min is not None and budget_max is not None and Decimal(budget_min) > Decimal(budget_max):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="budget_min cannot be greater than budget_max",
+        )
 
 
 def _normalize_tag_names(raw_tags: Any) -> list[str]:
@@ -187,6 +210,11 @@ def _validate_listing_creator(payload: dict[str, Any], db: Session) -> None:
         )
     listing_type = payload.get("listing_type")
     if listing_type == "looking_for":
+        _validate_budget_fields(
+            listing_type=listing_type,
+            budget_min=payload.get("budget_min"),
+            budget_max=payload.get("budget_max"),
+        )
         _require_user_profile(seller_id, db)
         return
     _require_seller_profile(seller_id, db)
@@ -875,6 +903,8 @@ def update_item(
         next_payload = {
             "seller_id": payload.get("seller_id", instance.seller_id),
             "listing_type": payload.get("listing_type", instance.listing_type),
+            "budget_min": payload.get("budget_min", instance.budget_min),
+            "budget_max": payload.get("budget_max", instance.budget_max),
         }
         _validate_listing_creator(next_payload, db)
     for field, value in payload.items():

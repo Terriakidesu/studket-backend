@@ -115,11 +115,33 @@ def _ensure_listing_share_token_column() -> None:
             )
 
 
+def _ensure_listing_budget_columns() -> None:
+    inspector = inspect(engine)
+    if "listing" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("listing")}
+    statements: list[str] = []
+
+    if "budget_min" not in existing_columns:
+        statements.append("ALTER TABLE listing ADD COLUMN budget_min NUMERIC(10, 2)")
+    if "budget_max" not in existing_columns:
+        statements.append("ALTER TABLE listing ADD COLUMN budget_max NUMERIC(10, 2)")
+
+    if not statements:
+        return
+
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
+
+
 def create_tables():
     Base.metadata.create_all(bind=engine)
     _ensure_account_report_columns()
     _ensure_user_profile_seller_column()
     _ensure_management_profile_photo_column()
+    _ensure_listing_budget_columns()
     _ensure_listing_share_token_column()
 
 
