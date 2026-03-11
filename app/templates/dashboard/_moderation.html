@@ -35,6 +35,15 @@
                     <td>{{ listing.report_count }}</td>
                     <td>{{ listing.last_reported_at or "-" }}</td>
                     <td>
+                        {% if listing.seller_id %}
+                        <form method="post" action="/dashboard/messages/start" style="margin-bottom:8px;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <input type="hidden" name="target_user_id" value="{{ listing.seller_id }}">
+                            <input type="hidden" name="conversation_type" value="listing_moderation">
+                            <input type="hidden" name="initial_message" value="Your listing has been flagged by users and is under moderation review.">
+                            <button type="submit"><i class="fa-regular fa-envelope" style="margin-right:6px;"></i>Message Seller</button>
+                        </form>
+                        {% endif %}
                         <form method="post" action="/dashboard/listings/{{ listing.listing_id }}/delete">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                             <button type="submit" class="danger"><i class="fa-solid fa-trash" style="margin-right:6px;"></i>Delete</button>
@@ -73,6 +82,15 @@
                     <td>{{ post.report_count }}</td>
                     <td>{{ post.last_reported_at or "-" }}</td>
                     <td>
+                        {% if post.requester_id %}
+                        <form method="post" action="/dashboard/messages/start" style="margin-bottom:8px;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <input type="hidden" name="target_user_id" value="{{ post.requester_id }}">
+                            <input type="hidden" name="conversation_type" value="looking_for_moderation">
+                            <input type="hidden" name="initial_message" value="Your looking-for post has been flagged by users and is under moderation review.">
+                            <button type="submit"><i class="fa-regular fa-envelope" style="margin-right:6px;"></i>Message User</button>
+                        </form>
+                        {% endif %}
                         <form method="post" action="/dashboard/listings/{{ post.listing_id }}/delete">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                             <button type="submit" class="danger"><i class="fa-solid fa-trash" style="margin-right:6px;"></i>Delete</button>
@@ -98,6 +116,7 @@
                     <th>Reported User</th>
                     <th>Reports</th>
                     <th>Last Reported</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -110,9 +129,10 @@
                     <td>{{ conversation.reported_username or "not specified" }}</td>
                     <td>{{ conversation.report_count }}</td>
                     <td>{{ conversation.last_reported_at or "-" }}</td>
+                    <td><a class="button" href="/dashboard/messages?conversation_id={{ conversation.conversation_id }}"><i class="fa-solid fa-arrow-up-right-from-square" style="margin-right:6px;"></i>Open Chat</a></td>
                 </tr>
                 {% else %}
-                <tr><td colspan="4" class="muted">No reported chats yet.</td></tr>
+                <tr><td colspan="5" class="muted">No reported chats yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -147,6 +167,13 @@
                             <form method="post" action="/dashboard/sellers/{{ seller.seller_id }}/warn">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                 <button type="submit"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Warn</button>
+                            </form>
+                            <form method="post" action="/dashboard/messages/start">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="target_user_id" value="{{ seller.seller_id }}">
+                                <input type="hidden" name="conversation_type" value="seller_moderation">
+                                <input type="hidden" name="initial_message" value="Your account has been reported and is currently under moderation review.">
+                                <button type="submit"><i class="fa-regular fa-envelope" style="margin-right:6px;"></i>Message</button>
                             </form>
                             {% if seller.account_status == "banned" %}
                             <form method="post" action="/dashboard/sellers/{{ seller.seller_id }}/unban">

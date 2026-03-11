@@ -4,6 +4,13 @@
     {% if lowest_rated_seller %}
     <div class="value-display">{{ "%.2f"|format(lowest_rated_seller.average_rating) }}</div>
     <div><strong>{{ lowest_rated_seller.username }}</strong><br><span class="muted">{{ lowest_rated_seller.review_count }} reviews</span></div>
+    <form method="post" action="/dashboard/messages/start" class="block-spacer">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="target_user_id" value="{{ lowest_rated_seller.reviewee_id }}">
+        <input type="hidden" name="conversation_type" value="seller_quality_followup">
+        <textarea name="initial_message" placeholder="Optional quality follow-up message"></textarea>
+        <div class="row-actions"><button type="submit"><i class="fa-regular fa-envelope" style="margin-right:6px;"></i>Message Seller</button></div>
+    </form>
     {% else %}
     <div class="muted">No seller review data yet.</div>
     {% endif %}

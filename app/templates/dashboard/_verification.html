@@ -35,6 +35,13 @@
                             <textarea name="review_note" placeholder="Optional rejection note"></textarea>
                             <div class="row-actions"><button type="submit" class="danger"><i class="fa-solid fa-xmark" style="margin-right:6px;"></i>Reject</button></div>
                         </form>
+                        <form method="post" action="/dashboard/messages/start" style="margin-top:8px;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <input type="hidden" name="target_user_id" value="{{ request_row.user_id }}">
+                            <input type="hidden" name="conversation_type" value="verification_support">
+                            <textarea name="initial_message" placeholder="Optional message to seller about verification"></textarea>
+                            <div class="row-actions"><button type="submit"><i class="fa-regular fa-envelope" style="margin-right:6px;"></i>Message Seller</button></div>
+                        </form>
                     </td>
                 </tr>
                 {% else %}

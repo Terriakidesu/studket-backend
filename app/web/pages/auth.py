@@ -85,6 +85,55 @@ def _require_web_session(request: Request) -> dict:
     return account
 
 
+def _find_staff_user_conversation(
+    db: Session,
+    *,
+    staff_account_id: int,
+    user_account_id: int,
+) -> Conversation | None:
+    return (
+        db.query(Conversation)
+        .filter(
+            or_(
+                and_(
+                    Conversation.participant1_id == staff_account_id,
+                    Conversation.participant2_id == user_account_id,
+                ),
+                and_(
+                    Conversation.participant1_id == user_account_id,
+                    Conversation.participant2_id == staff_account_id,
+                ),
+            )
+        )
+        .first()
+    )
+
+
+def _get_or_create_staff_user_conversation(
+    db: Session,
+    *,
+    staff_account_id: int,
+    user_account_id: int,
+    conversation_type: str = "staff_support",
+) -> Conversation:
+    conversation = _find_staff_user_conversation(
+        db,
+        staff_account_id=staff_account_id,
+        user_account_id=user_account_id,
+    )
+    if conversation is not None:
+        return conversation
+
+    conversation = Conversation(
+        participant1_id=staff_account_id,
+        participant2_id=user_account_id,
+        conversation_type=conversation_type,
+    )
+    db.add(conversation)
+    db.flush()
+    return conversation
+
+
 def _render_auth_page(
     request: Request,
     *,
@@ -169,6 +218,7 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
     verification_requests = (
         db.query(
             SellerVerificationRequest.request_id,
+            SellerVerificationRequest.user_id,
             SellerVerificationRequest.status,
             SellerVerificationRequest.submission_note,
             SellerVerificationRequest.created_at,
@@ -240,6 +290,7 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
     listing_reports = (
         db.query(
             Listing.listing_id,
+            Listing.seller_id,
             Listing.title,
             Listing.listing_type,
             Listing.status,
@@ -269,6 +320,7 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
     looking_for_reports = (
         db.query(
             Listing.listing_id,
+            Listing.seller_id.label("requester_id"),
             Listing.title,
             Listing.status,
             Account.username.label("requester_username"),
@@ -764,9 +816,158 @@ def dashboard_messages(
             "conversations": conversation_rows,
             "selected_conversation": selected_conversation,
             "conversation_messages": messages,
+            "compose_text": "",
         }
     )
     return templates.TemplateResponse("dashboard/messages.html", context)
+
+
+@router.get("/dashboard/search", response_class=HTMLResponse)
+def dashboard_search(
+    request: Request,
+    q: str = "",
+    tab: str = "listings",
+    page: int = 1,
+    db: Session = Depends(get_db),
+):
+    try:
+        context = _build_dashboard_context(request, db)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    query_text = q.strip()
+    selected_tab = tab if tab in {"listings", "accounts", "audit"} else "listings"
+    current_page = max(page, 1)
+    per_page = 10
+    listings_results = []
+    account_results = []
+    audit_results = []
+    listings_count = 0
+    accounts_count = 0
+    audit_count = 0
+
+    if query_text:
+        like_value = f"%{query_text.lower()}%"
+        listings_query = (
+            db.query(
+                Listing.listing_id,
+                Listing.title,
+                Listing.listing_type,
+                Listing.status,
+                Listing.created_at,
+                Account.username.label("seller_username"),
+            )
+            .outerjoin(Account, Account.account_id == Listing.seller_id)
+            .filter(
+                or_(
+                    func.lower(Listing.title).like(like_value),
+                    func.lower(Listing.description).like(like_value),
+                    func.lower(Listing.listing_type).like(like_value),
+                    func.lower(Account.username).like(like_value),
+                )
+            )
+        )
+        accounts_query = (
+            db.query(
+                Account.account_id,
+                Account.username,
+                Account.email,
+                Account.account_type,
+                Account.account_status,
+                Account.created_at,
+            )
+            .filter(
+                or_(
+                    func.lower(Account.username).like(like_value),
+                    func.lower(Account.email).like(like_value),
+                    func.lower(Account.account_type).like(like_value),
+                    func.lower(Account.account_status).like(like_value),
+                )
+            )
+        )
+        audit_query = (
+            db.query(AuditLog)
+            .filter(
+                or_(
+                    func.lower(AuditLog.actor_username).like(like_value),
+                    func.lower(AuditLog.actor_role).like(like_value),
+                    func.lower(AuditLog.action).like(like_value),
+                    func.lower(AuditLog.target_type).like(like_value),
+                    func.lower(AuditLog.target_label).like(like_value),
+                    func.lower(AuditLog.target_id).like(like_value),
+                    func.lower(AuditLog.details).like(like_value),
+                )
+            )
+        )
+
+        listings_count = listings_query.count()
+        accounts_count = accounts_query.count()
+        audit_count = audit_query.count()
+
+        active_count = {
+            "listings": listings_count,
+            "accounts": accounts_count,
+            "audit": audit_count,
+        }[selected_tab]
+        total_pages = max((active_count + per_page - 1) // per_page, 1)
+        current_page = min(current_page, total_pages)
+        offset = (current_page - 1) * per_page
+        if selected_tab == "listings":
+            listings_results = (
+                listings_query.order_by(Listing.created_at.desc())
+                .offset(offset)
+                .limit(per_page)
+                .all()
+            )
+        elif selected_tab == "accounts":
+            account_results = (
+                accounts_query.order_by(Account.created_at.desc())
+                .offset(offset)
+                .limit(per_page)
+                .all()
+            )
+        else:
+            audit_results = (
+                audit_query.order_by(AuditLog.created_at.desc())
+                .offset(offset)
+                .limit(per_page)
+                .all()
+            )
+
+    active_count = {
+        "listings": listings_count,
+        "accounts": accounts_count,
+        "audit": audit_count,
+    }[selected_tab]
+    total_pages = max((active_count + per_page - 1) // per_page, 1)
+
+    context.update(
+        {
+            "active_page": "search",
+            "page_title": "Search",
+            "page_description": "Search listings and posts, users and sellers, and audit logs from one dashboard page.",
+            "search_query": query_text,
+            "search_tab": selected_tab,
+            "search_results": {
+                "listings": listings_results,
+                "accounts": account_results,
+                "audit_logs": audit_results,
+            },
+            "search_counts": {
+                "listings": listings_count,
+                "accounts": accounts_count,
+                "audit_logs": audit_count,
+            },
+            "search_pagination": {
+                "page": current_page,
+                "per_page": per_page,
+                "total_pages": total_pages,
+                "has_prev": current_page > 1,
+                "has_next": current_page < total_pages,
+            },
+        }
+    )
+    return templates.TemplateResponse("dashboard/search.html", context)
 
 
 @router.get("/dashboard/quality", response_class=HTMLResponse)
@@ -1123,6 +1324,65 @@ def send_dashboard_message(
     db.commit()
     return RedirectResponse(
         url=f"/dashboard/messages?conversation_id={conversation_id}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.post("/dashboard/messages/start")
+def start_dashboard_message(
+    request: Request,
+    csrf_token: str = Form(...),
+    target_user_id: int = Form(...),
+    initial_message: str = Form(""),
+    conversation_type: str = Form("staff_support"),
+    db: Session = Depends(get_db),
+):
+    try:
+        account = _require_web_session(request)
+        _verify_csrf(request, csrf_token)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    target_account = (
+        db.query(Account)
+        .filter(Account.account_id == target_user_id, Account.account_type == "user")
+        .first()
+    )
+    if target_account is None:
+        return RedirectResponse(url="/dashboard/messages", status_code=status.HTTP_303_SEE_OTHER)
+
+    conversation = _get_or_create_staff_user_conversation(
+        db,
+        staff_account_id=account["account_id"],
+        user_account_id=target_user_id,
+        conversation_type=conversation_type.strip() or "staff_support",
+    )
+
+    trimmed_message = initial_message.strip()
+    if trimmed_message:
+        db.add(
+            Message(
+                conversation_id=conversation.conversation_id,
+                sender_id=account["account_id"],
+                message_text=trimmed_message,
+                is_read=False,
+            )
+        )
+
+    create_audit_log(
+        db,
+        actor_account_id=account["account_id"],
+        actor_username=account["username"],
+        actor_role=account["account_type"],
+        action="start_dashboard_message_thread",
+        target_type="conversation",
+        target_id=str(conversation.conversation_id),
+        target_label=str(conversation.conversation_id),
+        details=f"Opened staff conversation with user {target_user_id}",
+    )
+    db.commit()
+    return RedirectResponse(
+        url=f"/dashboard/messages?conversation_id={conversation.conversation_id}",
         status_code=status.HTTP_303_SEE_OTHER,
     )
 

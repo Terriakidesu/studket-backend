@@ -525,6 +525,38 @@
         display: grid;
         gap: 12px;
     }
+    .tabs {
+        display: grid;
+        gap: 14px;
+    }
+    .tab-list {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .tab-button {
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.74);
+        color: var(--muted);
+    }
+    .tab-button .sidebar-badge {
+        margin-left: 4px;
+        background: rgba(37, 99, 235, 0.10);
+        color: var(--accent-strong);
+    }
+    .tab-button.active {
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        color: white;
+        border-color: transparent;
+        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.16);
+    }
+    .tab-button.active .sidebar-badge {
+        background: rgba(255, 255, 255, 0.18);
+        color: white;
+    }
+    .tab-panel[hidden] {
+        display: none;
+    }
     @media (max-width: 1180px) {
         .dashboard-shell {
             width: 100%;
@@ -612,6 +644,7 @@
                 <p class="sidebar-title">Overview</p>
                 <nav class="sidebar-nav">
                     <a class="sidebar-link {% if active_page == 'overview' %}active{% endif %}" href="/dashboard" title="Dashboard"><i class="fa-solid fa-gauge-high"></i><span class="sidebar-text">Dashboard</span></a>
+                    <a class="sidebar-link {% if active_page == 'search' %}active{% endif %}" href="/dashboard/search" title="Search"><i class="fa-solid fa-magnifying-glass"></i><span class="sidebar-text">Search</span></a>
                     <a class="sidebar-link {% if active_page == 'messages' %}active{% endif %}" href="/dashboard/messages" title="Messages"><i class="fa-regular fa-envelope"></i><span class="sidebar-text">Messages</span>{% if conversation_count %}<span class="sidebar-badge">{{ conversation_count }}</span>{% endif %}</a>
                     <a class="sidebar-link {% if active_page == 'verification' %}active{% endif %}" href="/dashboard/verifications" title="Seller Verification"><i class="fa-solid fa-user-check"></i><span class="sidebar-text">Seller Verification</span>{% if pending_verification_count %}<span class="sidebar-badge">{{ pending_verification_count }}</span>{% endif %}</a>
                     <a class="sidebar-link {% if active_page == 'moderation' %}active{% endif %}" href="/dashboard/moderation" title="Trust and Safety"><i class="fa-solid fa-gavel"></i><span class="sidebar-text">Trust and Safety</span>{% if pending_moderation_count %}<span class="sidebar-badge">{{ pending_moderation_count }}</span>{% endif %}</a>
@@ -623,13 +656,6 @@
                 <nav class="sidebar-nav">
                     <a class="sidebar-link {% if active_page == 'quality' %}active{% endif %}" href="/dashboard/quality" title="Seller Quality"><i class="fa-solid fa-star-half-stroke"></i><span class="sidebar-text">Seller Quality</span></a>
                     <a class="sidebar-link {% if active_page == 'audit' %}active{% endif %}" href="/dashboard/audit" title="Audit Logs"><i class="fa-solid fa-clock-rotate-left"></i><span class="sidebar-text">Audit Logs</span></a>
-                </nav>
-            </div>
-
-            <div class="sidebar-group">
-                <p class="sidebar-title">Account</p>
-                <nav class="sidebar-nav">
-                    <a class="sidebar-link {% if active_page == 'account' %}active{% endif %}" href="/dashboard/account" title="Account Snapshot"><i class="fa-solid fa-id-card"></i><span class="sidebar-text">Account Snapshot</span></a>
                 </nav>
             </div>
 
@@ -663,16 +689,16 @@
                     <a href="/dashboard/messages" class="button nav-icon" aria-label="Messages">
                         <i class="fa-regular fa-envelope"></i>
                     </a>
-                    <button type="button" class="button nav-icon" aria-label="Search">
+                    <a href="/dashboard/search" class="button nav-icon" aria-label="Search">
                         <i class="fa-solid fa-magnifying-glass"></i>
-                    </button>
-                    <div class="profile-chip">
+                    </a>
+                    <a href="/dashboard/account" class="profile-chip" style="text-decoration:none; color:inherit;">
                         <span class="profile-avatar">{{ account.username[:2] }}</span>
                         <span class="profile-copy">
                             <strong>{{ account.username }}</strong>
                             <span>{{ account.email }}</span>
                         </span>
-                    </div>
+                    </a>
                 </div>
             </section>
 
