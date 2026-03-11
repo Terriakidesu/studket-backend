@@ -28,9 +28,42 @@ def _ensure_account_report_columns() -> None:
             connection.execute(text(statement))
 
 
+def _ensure_user_profile_seller_column() -> None:
+    inspector = inspect(engine)
+    if "user_profile" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("user_profile")}
+    statements: list[str] = []
+
+    if "is_seller" not in existing_columns:
+        statements.append(
+            "ALTER TABLE user_profile ADD COLUMN is_seller BOOLEAN NOT NULL DEFAULT FALSE"
+        )
+
+    # Preserve seller access for existing accounts that already have normal listings.
+    statements.append(
+        """
+        UPDATE user_profile
+        SET is_seller = TRUE
+        WHERE user_id IN (
+            SELECT DISTINCT seller_id
+            FROM listing
+            WHERE seller_id IS NOT NULL
+              AND (listing_type IS NULL OR listing_type <> 'looking_for')
+        )
+        """
+    )
+
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
+
+
 def create_tables():
     Base.metadata.create_all(bind=engine)
     _ensure_account_report_columns()
+    _ensure_user_profile_seller_column()
 
 
 if __name__ == "__main__":

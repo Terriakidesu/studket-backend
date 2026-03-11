@@ -9,6 +9,7 @@ from app.services.auth import (
     AuthServiceError,
     RegistrationData,
     authenticate_account,
+    elevate_buyer_to_seller,
     get_marketplace_role,
     register_account,
     request_seller_status,
@@ -39,6 +40,10 @@ class LoginRequest(BaseModel):
 class SellerStatusRequest(BaseModel):
     account_id: int
     submission_note: str | None = None
+
+
+class SellerElevationRequest(BaseModel):
+    account_id: int
 
 
 def _emit_verification_summary_update(db: Session) -> None:
@@ -145,4 +150,22 @@ def request_seller_access(payload: SellerStatusRequest, db: Session = Depends(ge
         "request_id": verification_request.request_id,
         "account_id": verification_request.user_id,
         "status": verification_request.status,
+    }
+
+
+@router.post("/seller-status/elevate")
+def elevate_seller_status(payload: SellerElevationRequest, db: Session = Depends(get_db)):
+    try:
+        profile = elevate_buyer_to_seller(
+            db,
+            account_id=payload.account_id,
+        )
+    except AuthServiceError as exc:
+        raise auth_error(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+    return {
+        "message": "Seller access enabled",
+        "account_id": profile.user_id,
+        "marketplace_role": "seller",
+        "trusted_seller": bool(profile.is_verified),
     }

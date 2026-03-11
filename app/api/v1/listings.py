@@ -78,6 +78,24 @@ def _require_user_profile(user_id: int, db: Session) -> None:
         )
 
 
+def _require_seller_profile(user_id: int, db: Session) -> None:
+    profile = (
+        db.query(UserProfile)
+        .filter(UserProfile.user_id == user_id)
+        .first()
+    )
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User profile not found",
+        )
+    if not profile.is_seller:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seller access required for normal listings",
+        )
+
+
 def _validate_listing_creator(payload: dict[str, Any], db: Session) -> None:
     seller_id = payload.get("seller_id")
     if seller_id is None:
@@ -85,7 +103,11 @@ def _validate_listing_creator(payload: dict[str, Any], db: Session) -> None:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="seller_id is required",
         )
-    _require_user_profile(seller_id, db)
+    listing_type = payload.get("listing_type")
+    if listing_type == "looking_for":
+        _require_user_profile(seller_id, db)
+        return
+    _require_seller_profile(seller_id, db)
 
 
 @router.get("/feed")

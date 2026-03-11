@@ -12,7 +12,6 @@ from app.core.security import (
 from app.db.models import (
     Account,
     AppSetting,
-    Listing,
     ManagementAccount,
     SellerVerificationRequest,
     UserProfile,
@@ -55,17 +54,41 @@ def get_marketplace_role(account: Account, db: Session | None = None) -> str:
     if db is None:
         return "buyer"
 
-    has_listing = (
-        db.query(Listing.listing_id)
-        .filter(
-            Listing.seller_id == account.account_id,
-            Listing.listing_type != "looking_for",
-        )
+    profile = (
+        db.query(UserProfile)
+        .filter(UserProfile.user_id == account.account_id)
         .first()
     )
-    if has_listing is not None:
+    if profile is not None and profile.is_seller:
         return "seller"
     return "buyer"
+
+
+def elevate_buyer_to_seller(
+    db: Session,
+    *,
+    account_id: int,
+) -> UserProfile:
+    account = (
+        db.query(Account)
+        .filter(Account.account_id == account_id, Account.account_type == "user")
+        .first()
+    )
+    if account is None:
+        raise AuthServiceError("User account not found")
+
+    profile = (
+        db.query(UserProfile)
+        .filter(UserProfile.user_id == account_id)
+        .first()
+    )
+    if profile is None:
+        raise AuthServiceError("User profile not found")
+
+    profile.is_seller = True
+    db.commit()
+    db.refresh(profile)
+    return profile
 
 
 def request_seller_status(
@@ -160,6 +183,7 @@ def register_account(db: Session, payload: RegistrationData) -> Account:
                 first_name=(payload.first_name or "").strip() or None,
                 last_name=(payload.last_name or "").strip() or None,
                 campus=(payload.campus or "").strip() or None,
+                is_seller=False,
             )
         )
     elif account_type == "management":

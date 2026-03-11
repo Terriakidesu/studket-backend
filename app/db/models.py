@@ -38,6 +38,7 @@ class UserProfile(Base):
     campus = Column(String)
 
     profile_photo = Column(Text)
+    is_seller = Column(Boolean, default=False, nullable=False)
     is_verified = Column(Boolean, default=False)
 
     created_at = Column(TIMESTAMP, server_default=func.now())

@@ -34,6 +34,7 @@ These endpoints do not require a management session:
 
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
+- `POST /api/v1/auth/seller-status/elevate`
 - `POST /api/v1/auth/seller-status/request`
 
 ### User-facing API endpoints
@@ -780,7 +781,7 @@ Behavior notes:
 - The API exposes both `marketplace_role` and `trusted_seller`.
 - For `user` accounts:
   - `marketplace_role` is `buyer` by default
-  - It becomes `seller` once the user participates as a seller in marketplace activity
+  - It becomes `seller` only after explicit seller elevation
   - `trusted_seller` is a separate staff-controlled trust status
 
 Success response:
@@ -857,6 +858,52 @@ Possible errors:
 - `401 {"detail":{"error":"Invalid credentials"}}`
 - `401 {"detail":{"error":"Account is not active"}}`
 
+### POST `/api/v1/auth/seller-status/elevate`
+
+Enables seller access for a normal marketplace user.
+
+Access:
+
+- Public
+
+Request body:
+
+```json
+{
+  "account_id": 12
+}
+```
+
+Arguments:
+
+- `account_id` `integer`, required
+  - Must reference an existing `Account`
+  - The account must have `account_type = "user"`
+  - The account must have a `UserProfile`
+
+Behavior notes:
+
+- This is the buyer -> seller elevation endpoint.
+- It does not require staff approval.
+- It does not grant trusted-seller status.
+- Existing accounts that already have normal listings are backfilled to seller status automatically at startup.
+
+Success response:
+
+```json
+{
+  "message": "Seller access enabled",
+  "account_id": 12,
+  "marketplace_role": "seller",
+  "trusted_seller": false
+}
+```
+
+Possible errors:
+
+- `400 {"detail":{"error":"User account not found"}}`
+- `400 {"detail":{"error":"User profile not found"}}`
+
 ### POST `/api/v1/auth/seller-status/request`
 
 Creates a trusted-seller verification request for a normal marketplace user.
@@ -884,8 +931,8 @@ Arguments:
 
 Behavior notes:
 
-- This endpoint is not required for becoming a seller.
-- Any marketplace user can act as a seller without staff approval.
+- This endpoint is not the buyer -> seller elevation flow.
+- Use `POST /api/v1/auth/seller-status/elevate` first when a buyer wants seller access.
 - This request only asks staff to grant trusted-seller status.
 - If an identical pending request already exists, the API returns that existing request instead of creating a duplicate.
 - If the user is already a trusted seller, the request is rejected.
@@ -915,8 +962,9 @@ This router is custom and does not follow the generic CRUD behavior exactly.
 
 ### Listing role rules
 
-- Any marketplace user with a valid `UserProfile` can create standard listings.
+- Only users with seller access can create standard listings.
 - Any marketplace user with a valid `UserProfile` can also create `looking_for` posts.
+- Seller access is enabled through `POST /api/v1/auth/seller-status/elevate`.
 - Trusted-seller verification is a separate trust signal and does not gate listing creation.
 - The database column is still `seller_id`, but the API now also exposes a neutral alias:
   - `owner_id` for all listing types
@@ -1186,7 +1234,7 @@ Creates a listing or a `looking_for` post.
 
 Access:
 
-- Management session required
+- User-facing route
 
 Request body fields:
 
@@ -1210,8 +1258,11 @@ Validation rules:
 
 - A creator identifier is required:
   - `owner_id` or `seller_id`
-- For all listing types, including `looking_for`:
+- For `looking_for`:
   - the creator only needs an existing `UserProfile`
+- For normal listings:
+  - the creator must have an existing `UserProfile`
+  - the creator must have seller access enabled
 - Trusted-seller approval is not required for creating or updating listings
 
 Examples:
@@ -1247,6 +1298,7 @@ Possible errors:
 
 - `400 {"detail":"seller_id is required"}`
 - `404 {"detail":"User profile not found"}`
+- `403 {"detail":"Seller access required for normal listings"}`
 
 ### PATCH `/api/v1/listings/{item_id}`
 
@@ -1254,7 +1306,7 @@ Updates an existing listing.
 
 Access:
 
-- Management session required
+- User-facing route
 
 Path arguments:
 
@@ -1887,6 +1939,7 @@ The app uses Starlette session middleware, not token-based API auth:
 
 - Use `/api/v1/auth/register` for creating marketplace, management, or superadmin accounts.
 - Use `/api/v1/auth/login` for account credential checks.
+- Use `/api/v1/auth/seller-status/elevate` when a buyer wants to become a seller.
 - Use `/api/v1/auth/seller-status/request` when a seller wants staff-reviewed trusted-seller status.
 - Use `/api/v1/listings` for listing and `looking_for` management.
 - Use the CRUD endpoints only when you intentionally want direct table-level access from the management console.
