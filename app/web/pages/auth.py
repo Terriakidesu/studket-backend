@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, case, func, or_
 from sqlalchemy.orm import Session, aliased
 
 from app.core.security import SUPERADMIN_INVITE_CODE, generate_csrf_token
@@ -513,6 +514,391 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
     }
 
 
+def _build_banned_users_context(
+    db: Session,
+    *,
+    query_text: str = "",
+    page: int = 1,
+    per_page: int = 10,
+) -> dict:
+    normalized_query = query_text.strip()
+    current_page = max(page, 1)
+
+    banned_users_query = (
+        db.query(
+            Account.account_id,
+            Account.username,
+            Account.email,
+            Account.account_status,
+            Account.warning_count,
+            Account.last_warned_at,
+            Account.created_at,
+            UserProfile.campus,
+            UserProfile.first_name,
+            UserProfile.last_name,
+        )
+        .outerjoin(UserProfile, UserProfile.user_id == Account.account_id)
+        .filter(Account.account_type == "user", Account.account_status == "banned")
+    )
+
+    if normalized_query:
+        like_value = f"%{normalized_query.lower()}%"
+        banned_users_query = banned_users_query.filter(
+            or_(
+                func.lower(Account.username).like(like_value),
+                func.lower(Account.email).like(like_value),
+                func.lower(UserProfile.first_name).like(like_value),
+                func.lower(UserProfile.last_name).like(like_value),
+                func.lower(UserProfile.campus).like(like_value),
+            )
+        )
+
+    total_count = banned_users_query.count()
+    total_pages = max((total_count + per_page - 1) // per_page, 1)
+    current_page = min(current_page, total_pages)
+    offset = (current_page - 1) * per_page
+
+    rows = (
+        banned_users_query.order_by(
+            Account.last_warned_at.desc().nullslast(),
+            Account.created_at.desc(),
+            Account.account_id.desc(),
+        )
+        .offset(offset)
+        .limit(per_page)
+        .all()
+    )
+
+    pagination = {
+        "page": current_page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "has_prev": current_page > 1,
+        "has_next": current_page < total_pages,
+    }
+    pagination["prev_url"] = (
+        _build_moderation_redirect_url(
+            banned_query=normalized_query,
+            banned_page=current_page - 1,
+        )
+        if pagination["has_prev"]
+        else None
+    )
+    pagination["next_url"] = (
+        _build_moderation_redirect_url(
+            banned_query=normalized_query,
+            banned_page=current_page + 1,
+        )
+        if pagination["has_next"]
+        else None
+    )
+
+    return {
+        "query": normalized_query,
+        "results": rows,
+        "count": total_count,
+        "pagination": pagination,
+    }
+
+
+def _build_moderation_redirect_url(*, banned_query: str = "", banned_page: int = 1) -> str:
+    params: dict[str, str | int] = {}
+    if banned_query.strip():
+        params["banned_q"] = banned_query.strip()
+    if banned_page > 1:
+        params["banned_page"] = banned_page
+    if not params:
+        return "/dashboard/moderation"
+    return f"/dashboard/moderation?{urlencode(params)}"
+
+
+def _build_user_management_redirect_url(
+    *,
+    query: str = "",
+    status_filter: str = "all",
+    role_filter: str = "all",
+    page: int = 1,
+) -> str:
+    params: dict[str, str | int] = {}
+    if query.strip():
+        params["q"] = query.strip()
+    if status_filter != "all":
+        params["status"] = status_filter
+    if role_filter != "all":
+        params["role"] = role_filter
+    if page > 1:
+        params["page"] = page
+    if not params:
+        return "/dashboard/users"
+    return f"/dashboard/users?{urlencode(params)}"
+
+
+def _build_user_management_context(
+    db: Session,
+    *,
+    query_text: str = "",
+    status_filter: str = "all",
+    role_filter: str = "all",
+    page: int = 1,
+    per_page: int = 12,
+) -> dict:
+    normalized_query = query_text.strip()
+    normalized_status = status_filter.strip().lower() if status_filter else "all"
+    if normalized_status not in {"all", "active", "warned", "suspended", "banned"}:
+        normalized_status = "all"
+
+    normalized_role = role_filter.strip().lower() if role_filter else "all"
+    if normalized_role not in {"all", "buyers", "sellers", "both", "new"}:
+        normalized_role = "all"
+
+    current_page = max(page, 1)
+
+    listing_counts = (
+        db.query(
+            Listing.seller_id.label("user_id"),
+            func.count(Listing.listing_id).label("listing_count"),
+        )
+        .filter(Listing.seller_id.isnot(None))
+        .group_by(Listing.seller_id)
+        .subquery()
+    )
+    purchase_counts = (
+        db.query(
+            Transaction.buyer_id.label("user_id"),
+            func.count(Transaction.transaction_id).label("purchase_count"),
+        )
+        .filter(Transaction.buyer_id.isnot(None))
+        .group_by(Transaction.buyer_id)
+        .subquery()
+    )
+
+    users_query = (
+        db.query(
+            Account.account_id,
+            Account.username,
+            Account.email,
+            Account.account_status,
+            Account.warning_count,
+            Account.last_warned_at,
+            Account.created_at,
+            UserProfile.first_name,
+            UserProfile.last_name,
+            UserProfile.campus,
+            UserProfile.is_verified,
+            func.coalesce(listing_counts.c.listing_count, 0).label("listing_count"),
+            func.coalesce(purchase_counts.c.purchase_count, 0).label("purchase_count"),
+        )
+        .outerjoin(UserProfile, UserProfile.user_id == Account.account_id)
+        .outerjoin(listing_counts, listing_counts.c.user_id == Account.account_id)
+        .outerjoin(purchase_counts, purchase_counts.c.user_id == Account.account_id)
+        .filter(Account.account_type == "user")
+    )
+
+    if normalized_query:
+        like_value = f"%{normalized_query.lower()}%"
+        users_query = users_query.filter(
+            or_(
+                func.lower(Account.username).like(like_value),
+                func.lower(Account.email).like(like_value),
+                func.lower(UserProfile.first_name).like(like_value),
+                func.lower(UserProfile.last_name).like(like_value),
+                func.lower(UserProfile.campus).like(like_value),
+                func.lower(Account.account_status).like(like_value),
+            )
+        )
+
+    if normalized_status != "all":
+        users_query = users_query.filter(Account.account_status == normalized_status)
+
+    listing_count_expr = func.coalesce(listing_counts.c.listing_count, 0)
+    purchase_count_expr = func.coalesce(purchase_counts.c.purchase_count, 0)
+    if normalized_role == "buyers":
+        users_query = users_query.filter(purchase_count_expr > 0, listing_count_expr == 0)
+    elif normalized_role == "sellers":
+        users_query = users_query.filter(listing_count_expr > 0, purchase_count_expr == 0)
+    elif normalized_role == "both":
+        users_query = users_query.filter(listing_count_expr > 0, purchase_count_expr > 0)
+    elif normalized_role == "new":
+        users_query = users_query.filter(listing_count_expr == 0, purchase_count_expr == 0)
+
+    counts_source = users_query.with_entities(
+        listing_count_expr.label("listing_count"),
+        purchase_count_expr.label("purchase_count"),
+        Account.account_status.label("account_status"),
+    ).subquery()
+
+    role_and_status_counts = db.query(
+        func.count().label("total_count"),
+        func.sum(
+            case(
+                (
+                    and_(
+                        counts_source.c.purchase_count > 0,
+                        counts_source.c.listing_count == 0,
+                    ),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("buyers"),
+        func.sum(
+            case(
+                (
+                    and_(
+                        counts_source.c.listing_count > 0,
+                        counts_source.c.purchase_count == 0,
+                    ),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("sellers"),
+        func.sum(
+            case(
+                (
+                    and_(
+                        counts_source.c.listing_count > 0,
+                        counts_source.c.purchase_count > 0,
+                    ),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("both"),
+        func.sum(
+            case(
+                (
+                    and_(
+                        counts_source.c.listing_count == 0,
+                        counts_source.c.purchase_count == 0,
+                    ),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("new"),
+        func.sum(case((counts_source.c.account_status == "active", 1), else_=0)).label("active"),
+        func.sum(case((counts_source.c.account_status == "warned", 1), else_=0)).label("warned"),
+        func.sum(case((counts_source.c.account_status == "suspended", 1), else_=0)).label("suspended"),
+        func.sum(case((counts_source.c.account_status == "banned", 1), else_=0)).label("banned"),
+    ).one()
+
+    total_count = role_and_status_counts.total_count or 0
+    total_pages = max((total_count + per_page - 1) // per_page, 1)
+    current_page = min(current_page, total_pages)
+    offset = (current_page - 1) * per_page
+
+    rows = (
+        users_query.order_by(Account.created_at.desc(), Account.account_id.desc())
+        .offset(offset)
+        .limit(per_page)
+        .all()
+    )
+
+    role_counts = {
+        "buyers": role_and_status_counts.buyers or 0,
+        "sellers": role_and_status_counts.sellers or 0,
+        "both": role_and_status_counts.both or 0,
+        "new": role_and_status_counts.new or 0,
+    }
+    status_counts = {
+        "active": role_and_status_counts.active or 0,
+        "warned": role_and_status_counts.warned or 0,
+        "suspended": role_and_status_counts.suspended or 0,
+        "banned": role_and_status_counts.banned or 0,
+    }
+    serialized_rows = []
+    for row in rows:
+        is_seller = (row.listing_count or 0) > 0
+        is_buyer = (row.purchase_count or 0) > 0
+        if is_seller and is_buyer:
+            role_key = "both"
+            role_label = "buyer + seller"
+        elif is_seller:
+            role_key = "sellers"
+            role_label = "seller"
+        elif is_buyer:
+            role_key = "buyers"
+            role_label = "buyer"
+        else:
+            role_key = "new"
+            role_label = "new user"
+
+        serialized_rows.append(
+            {
+                "account_id": row.account_id,
+                "username": row.username,
+                "email": row.email,
+                "account_status": row.account_status or "active",
+                "warning_count": row.warning_count or 0,
+                "last_warned_at": row.last_warned_at,
+                "created_at": row.created_at,
+                "first_name": row.first_name,
+                "last_name": row.last_name,
+                "campus": row.campus,
+                "is_verified": bool(row.is_verified),
+                "listing_count": row.listing_count or 0,
+                "purchase_count": row.purchase_count or 0,
+                "role_key": role_key,
+                "role_label": role_label,
+            }
+        )
+
+    pagination = {
+        "page": current_page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "has_prev": current_page > 1,
+        "has_next": current_page < total_pages,
+    }
+    pagination["prev_url"] = (
+        _build_user_management_redirect_url(
+            query=normalized_query,
+            status_filter=normalized_status,
+            role_filter=normalized_role,
+            page=current_page - 1,
+        )
+        if pagination["has_prev"]
+        else None
+    )
+    pagination["next_url"] = (
+        _build_user_management_redirect_url(
+            query=normalized_query,
+            status_filter=normalized_status,
+            role_filter=normalized_role,
+            page=current_page + 1,
+        )
+        if pagination["has_next"]
+        else None
+    )
+
+    user_totals = (
+        db.query(
+            func.count(Account.account_id).label("total_users"),
+            func.sum(case((Account.account_status == "active", 1), else_=0)).label("active_users"),
+            func.sum(case((Account.account_status == "banned", 1), else_=0)).label("banned_users"),
+        )
+        .filter(Account.account_type == "user")
+        .one()
+    )
+
+    return {
+        "query": normalized_query,
+        "status_filter": normalized_status,
+        "role_filter": normalized_role,
+        "results": serialized_rows,
+        "count": total_count,
+        "pagination": pagination,
+        "summary": {
+            "total_users": user_totals.total_users or 0,
+            "active_users": user_totals.active_users or 0,
+            "banned_users": user_totals.banned_users or 0,
+        },
+        "page_role_counts": role_counts,
+        "page_status_counts": status_counts,
+    }
+
+
 @router.get("/auth", response_class=HTMLResponse)
 def auth_portal(request: Request):
     return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
@@ -756,16 +1142,30 @@ def dashboard_verifications(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/dashboard/moderation", response_class=HTMLResponse)
-def dashboard_moderation(request: Request, db: Session = Depends(get_db)):
+def dashboard_moderation(
+    request: Request,
+    banned_q: str = "",
+    banned_page: int = 1,
+    db: Session = Depends(get_db),
+):
     try:
         context = _build_dashboard_context(request, db)
     except AuthServiceError:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    banned_users = _build_banned_users_context(
+        db,
+        query_text=banned_q,
+        page=banned_page,
+    )
     context.update(
         {
             "active_page": "moderation",
             "page_title": "Trust and Safety",
             "page_description": "Review reported listings, looking-for posts, chats, and sellers from one moderation queue.",
+            "banned_users_query": banned_users["query"],
+            "banned_users": banned_users["results"],
+            "banned_users_count": banned_users["count"],
+            "banned_users_pagination": banned_users["pagination"],
         }
     )
     return templates.TemplateResponse("dashboard/moderation.html", context)
@@ -1021,6 +1421,46 @@ def dashboard_management_users(request: Request, db: Session = Depends(get_db)):
         }
     )
     return templates.TemplateResponse("dashboard/management_users.html", context)
+
+
+@router.get("/dashboard/users", response_class=HTMLResponse)
+def dashboard_users(
+    request: Request,
+    q: str = "",
+    status: str = "all",
+    role: str = "all",
+    page: int = 1,
+    db: Session = Depends(get_db),
+):
+    try:
+        context = _build_dashboard_context(request, db)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    user_management = _build_user_management_context(
+        db,
+        query_text=q,
+        status_filter=status,
+        role_filter=role,
+        page=page,
+    )
+    context.update(
+        {
+            "active_page": "user_management",
+            "page_title": "User Management",
+            "page_description": "Search, review, and update buyer and seller accounts from one dashboard page.",
+            "user_management_query": user_management["query"],
+            "user_management_status": user_management["status_filter"],
+            "user_management_role": user_management["role_filter"],
+            "managed_users": user_management["results"],
+            "managed_users_count": user_management["count"],
+            "managed_users_pagination": user_management["pagination"],
+            "managed_users_summary": user_management["summary"],
+            "managed_users_role_counts": user_management["page_role_counts"],
+            "managed_users_status_counts": user_management["page_status_counts"],
+        }
+    )
+    return templates.TemplateResponse("dashboard/users.html", context)
 
 
 @router.get("/dashboard/account", response_class=HTMLResponse)
@@ -1393,6 +1833,8 @@ def unban_seller(
     seller_id: int,
     request: Request,
     csrf_token: str = Form(...),
+    banned_q: str = Form(""),
+    banned_page: int = Form(1),
     db: Session = Depends(get_db),
 ):
     try:
@@ -1407,7 +1849,13 @@ def unban_seller(
         .first()
     )
     if seller is None:
-        return RedirectResponse(url="/dashboard/moderation", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(
+            url=_build_moderation_redirect_url(
+                banned_query=banned_q,
+                banned_page=max(banned_page, 1),
+            ),
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
     seller.account_status = "active"
 
@@ -1423,7 +1871,13 @@ def unban_seller(
         details="Restored seller access from dashboard moderation",
     )
     db.commit()
-    return RedirectResponse(url="/dashboard/moderation", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        url=_build_moderation_redirect_url(
+            banned_query=banned_q,
+            banned_page=max(banned_page, 1),
+        ),
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @router.post("/dashboard/settings/session-timeout")
@@ -1510,6 +1964,69 @@ def update_management_user(
     )
     db.commit()
     return RedirectResponse(url="/dashboard/management-users", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/dashboard/users/{user_id}/update")
+def update_user_management_account(
+    user_id: int,
+    request: Request,
+    csrf_token: str = Form(...),
+    account_status: str = Form(...),
+    q: str = Form(""),
+    status: str = Form("all"),
+    role: str = Form("all"),
+    page: int = Form(1),
+    db: Session = Depends(get_db),
+):
+    try:
+        account = _require_web_session(request)
+        _verify_csrf(request, csrf_token)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    managed_account = (
+        db.query(Account)
+        .filter(Account.account_id == user_id, Account.account_type == "user")
+        .first()
+    )
+    if managed_account is None:
+        return RedirectResponse(
+            url=_build_user_management_redirect_url(
+                query=q,
+                status_filter=status,
+                role_filter=role,
+                page=max(page, 1),
+            ),
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    normalized_status = account_status.strip().lower()
+    if normalized_status not in {"active", "warned", "suspended", "banned"}:
+        normalized_status = managed_account.account_status or "active"
+
+    managed_account.account_status = normalized_status
+
+    create_audit_log(
+        db,
+        actor_account_id=account["account_id"],
+        actor_username=account["username"],
+        actor_role=account["account_type"],
+        action="update_user_account_status",
+        target_type="account",
+        target_id=str(managed_account.account_id),
+        target_label=managed_account.username,
+        details=f"Updated user account status to {managed_account.account_status}",
+    )
+    db.commit()
+    return RedirectResponse(
+        url=_build_user_management_redirect_url(
+            query=q,
+            status_filter=status,
+            role_filter=role,
+            page=max(page, 1),
+        ),
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @router.post("/logout")

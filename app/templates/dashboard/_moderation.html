@@ -1,6 +1,12 @@
+{% set listings_count_label = "99+" if report_counts.listing > 99 else report_counts.listing %}
+{% set looking_for_count_label = "99+" if report_counts.looking_for > 99 else report_counts.looking_for %}
+{% set chat_count_label = "99+" if report_counts.chat > 99 else report_counts.chat %}
+{% set seller_count_label = "99+" if report_counts.seller > 99 else report_counts.seller %}
+{% set banned_count_label = "99+" if banned_users_count > 99 else banned_users_count %}
+
 <article class="panel">
     <h2><i class="fa-solid fa-shield-halved" style="margin-right:8px;"></i>Report Queue Overview</h2>
-    <p class="lead">Track which listings, looking-for posts, chats, and sellers are being reported most often.</p>
+    <p class="lead">Track which listings, looking-for posts, chats, sellers, and banned accounts need attention.</p>
     <section class="grid metrics">
         <article class="metric"><small>Listing Reports</small><strong>{{ report_counts.listing }}</strong></article>
         <article class="metric"><small>Looking For Reports</small><strong>{{ report_counts.looking_for }}</strong></article>
@@ -9,7 +15,17 @@
     </section>
 </article>
 
-<article class="panel">
+<article class="panel tabs" data-tabs>
+    <div class="tab-list" role="tablist" aria-label="Moderation sections">
+        <button type="button" class="button tab-button active" data-tab-target="reported-listings" role="tab" aria-selected="true">1. Listings<span class="sidebar-badge">{{ listings_count_label }}</span></button>
+        <button type="button" class="button tab-button" data-tab-target="reported-looking-for" role="tab" aria-selected="false">2. Looking For<span class="sidebar-badge">{{ looking_for_count_label }}</span></button>
+        <button type="button" class="button tab-button" data-tab-target="reported-chats" role="tab" aria-selected="false">3. Chats<span class="sidebar-badge">{{ chat_count_label }}</span></button>
+        <button type="button" class="button tab-button" data-tab-target="reported-sellers" role="tab" aria-selected="false">4. Sellers<span class="sidebar-badge">{{ seller_count_label }}</span></button>
+        <button type="button" class="button tab-button" data-tab-target="banned-users" role="tab" aria-selected="false">5. Banned Users<span class="sidebar-badge">{{ banned_count_label }}</span></button>
+    </div>
+</article>
+
+<article class="panel tab-panel" id="reported-listings" data-tab-panel="reported-listings" role="tabpanel">
     <h2><i class="fa-solid fa-store" style="margin-right:8px;"></i>Reported Listings</h2>
     <p class="lead">Listings reported for inappropriate content, ranked by total report count.</p>
     <div class="table-wrap">
@@ -58,7 +74,7 @@
     </div>
 </article>
 
-<article class="panel">
+<article class="panel tab-panel" id="reported-looking-for" data-tab-panel="reported-looking-for" role="tabpanel" hidden>
     <h2><i class="fa-solid fa-magnifying-glass" style="margin-right:8px;"></i>Reported Looking-For Posts</h2>
     <p class="lead">Looking-for posts reported by users, including how many times each post was flagged.</p>
     <div class="table-wrap">
@@ -105,7 +121,7 @@
     </div>
 </article>
 
-<article class="panel">
+<article class="panel tab-panel" id="reported-chats" data-tab-panel="reported-chats" role="tabpanel" hidden>
     <h2><i class="fa-solid fa-comments" style="margin-right:8px;"></i>Reported Chats</h2>
     <p class="lead">Conversation-level reports so management can identify abusive or inappropriate chat activity.</p>
     <div class="table-wrap">
@@ -139,7 +155,7 @@
     </div>
 </article>
 
-<article class="panel">
+<article class="panel tab-panel" id="reported-sellers" data-tab-panel="reported-sellers" role="tabpanel" hidden>
     <h2><i class="fa-solid fa-user-shield" style="margin-right:8px;"></i>Reported Sellers</h2>
     <p class="lead">See which sellers are being reported most often and take warning or ban actions directly.</p>
     <div class="table-wrap">
@@ -195,4 +211,88 @@
             </tbody>
         </table>
     </div>
+</article>
+
+<article class="panel tab-panel" id="banned-users" data-tab-panel="banned-users" role="tabpanel" hidden>
+    <h2><i class="fa-solid fa-user-slash" style="margin-right:8px;"></i>Banned Users</h2>
+    <p class="lead">Search banned user accounts, review the reason signals, and restore access from the dashboard.</p>
+
+    <form method="get" action="/dashboard/moderation" class="block-spacer">
+        <div class="mini-grid">
+            <div>
+                <label class="muted" for="banned_q">Search banned users</label>
+                <input class="input" id="banned_q" type="text" name="banned_q" value="{{ banned_users_query or '' }}" placeholder="Search by username, email, name, or campus">
+            </div>
+            <div style="display:flex; align-items:end; gap:8px; flex-wrap:wrap;">
+                <button type="submit" class="primary"><i class="fa-solid fa-magnifying-glass" style="margin-right:6px;"></i>Search</button>
+                {% if banned_users_query %}
+                <a class="button" href="/dashboard/moderation#banned-users"><i class="fa-solid fa-rotate-left" style="margin-right:6px;"></i>Clear</a>
+                {% endif %}
+                <span class="muted" style="display:inline-flex; align-items:center;">{{ banned_count_label }} match{% if banned_users_count != 1 %}es{% endif %}</span>
+            </div>
+        </div>
+    </form>
+
+    <div class="table-wrap block-spacer">
+        <table>
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Campus</th>
+                    <th>Warnings</th>
+                    <th>Last Warned</th>
+                    <th>Created</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in banned_users %}
+                <tr>
+                    <td>
+                        <strong>{{ user.username }}</strong><br>
+                        <span class="muted">{{ user.email }}</span>
+                        {% if user.first_name or user.last_name %}
+                        <div class="muted">{{ (user.first_name or "") ~ (" " if user.first_name and user.last_name else "") ~ (user.last_name or "") }}</div>
+                        {% endif %}
+                    </td>
+                    <td>{{ user.campus or "-" }}</td>
+                    <td>{{ user.warning_count or 0 }}</td>
+                    <td>{{ user.last_warned_at or "-" }}</td>
+                    <td>{{ user.created_at or "-" }}</td>
+                    <td>
+                        <div class="row-actions" style="margin-top:0;">
+                            <form method="post" action="/dashboard/sellers/{{ user.account_id }}/unban">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="banned_q" value="{{ banned_users_query or '' }}">
+                                <input type="hidden" name="banned_page" value="{{ banned_users_pagination.page }}">
+                                <button type="submit" class="success-btn"><i class="fa-solid fa-user-check" style="margin-right:6px;"></i>Unban</button>
+                            </form>
+                            <form method="post" action="/dashboard/messages/start">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="target_user_id" value="{{ user.account_id }}">
+                                <input type="hidden" name="conversation_type" value="banned_user_followup">
+                                <input type="hidden" name="initial_message" value="We are contacting you regarding your banned account status.">
+                                <button type="submit"><i class="fa-regular fa-envelope" style="margin-right:6px;"></i>Message</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="muted">{% if banned_users_query %}No banned users match this search.{% else %}No banned users found.{% endif %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if banned_users_count %}
+    <div class="row-actions block-spacer">
+        {% if banned_users_pagination.has_prev %}
+        <a class="button" href="{{ banned_users_pagination.prev_url }}#banned-users"><i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i>Previous</a>
+        {% endif %}
+        <span class="muted" style="display:inline-flex; align-items:center;">Page {{ banned_users_pagination.page }} of {{ banned_users_pagination.total_pages }}</span>
+        {% if banned_users_pagination.has_next %}
+        <a class="button" href="{{ banned_users_pagination.next_url }}#banned-users">Next<i class="fa-solid fa-arrow-right" style="margin-left:6px;"></i></a>
+        {% endif %}
+    </div>
+    {% endif %}
 </article>

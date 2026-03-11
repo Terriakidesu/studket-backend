@@ -644,6 +644,7 @@
                 <p class="sidebar-title">Overview</p>
                 <nav class="sidebar-nav">
                     <a class="sidebar-link {% if active_page == 'overview' %}active{% endif %}" href="/dashboard" title="Dashboard"><i class="fa-solid fa-gauge-high"></i><span class="sidebar-text">Dashboard</span></a>
+                    <a class="sidebar-link {% if active_page == 'user_management' %}active{% endif %}" href="/dashboard/users" title="User Management"><i class="fa-solid fa-users-gear"></i><span class="sidebar-text">User Management</span></a>
                     <a class="sidebar-link {% if active_page == 'search' %}active{% endif %}" href="/dashboard/search" title="Search"><i class="fa-solid fa-magnifying-glass"></i><span class="sidebar-text">Search</span></a>
                     <a class="sidebar-link {% if active_page == 'messages' %}active{% endif %}" href="/dashboard/messages" title="Messages"><i class="fa-regular fa-envelope"></i><span class="sidebar-text">Messages</span>{% if conversation_count %}<span class="sidebar-badge">{{ conversation_count }}</span>{% endif %}</a>
                     <a class="sidebar-link {% if active_page == 'verification' %}active{% endif %}" href="/dashboard/verifications" title="Seller Verification"><i class="fa-solid fa-user-check"></i><span class="sidebar-text">Seller Verification</span>{% if pending_verification_count %}<span class="sidebar-badge">{{ pending_verification_count }}</span>{% endif %}</a>

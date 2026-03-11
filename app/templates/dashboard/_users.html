@@ -1,0 +1,152 @@
+{% set buyers_count_label = "99+" if managed_users_role_counts.buyers > 99 else managed_users_role_counts.buyers %}
+{% set sellers_count_label = "99+" if managed_users_role_counts.sellers > 99 else managed_users_role_counts.sellers %}
+{% set both_count_label = "99+" if managed_users_role_counts.both > 99 else managed_users_role_counts.both %}
+{% set new_count_label = "99+" if managed_users_role_counts.new > 99 else managed_users_role_counts.new %}
+
+<article class="panel">
+    <h2><i class="fa-solid fa-users-gear" style="margin-right:8px;"></i>Marketplace Users</h2>
+    <p class="lead">Manage buyer and seller accounts, update status, and jump into messaging without leaving the dashboard.</p>
+    <section class="grid metrics">
+        <article class="metric"><small>Total Users</small><strong>{{ managed_users_summary.total_users }}</strong></article>
+        <article class="metric"><small>Active Users</small><strong>{{ managed_users_summary.active_users }}</strong></article>
+        <article class="metric"><small>Banned Users</small><strong>{{ managed_users_summary.banned_users }}</strong></article>
+        <article class="metric"><small>Current Results</small><strong>{{ managed_users_count }}</strong></article>
+    </section>
+</article>
+
+<article class="panel">
+    <h2><i class="fa-solid fa-filter" style="margin-right:8px;"></i>Filter Users</h2>
+    <p class="lead">Search by identity or campus, then narrow the list by account status and marketplace role.</p>
+    <form method="get" action="/dashboard/users">
+        <div class="mini-grid">
+            <div>
+                <label class="muted" for="user-q">Search</label>
+                <input class="input" id="user-q" type="text" name="q" value="{{ user_management_query or '' }}" placeholder="Username, email, name, campus, or status">
+            </div>
+            <div>
+                <label class="muted" for="user-status">Status</label>
+                <select class="input" id="user-status" name="status">
+                    <option value="all" {% if user_management_status == "all" %}selected{% endif %}>all statuses</option>
+                    <option value="active" {% if user_management_status == "active" %}selected{% endif %}>active</option>
+                    <option value="warned" {% if user_management_status == "warned" %}selected{% endif %}>warned</option>
+                    <option value="suspended" {% if user_management_status == "suspended" %}selected{% endif %}>suspended</option>
+                    <option value="banned" {% if user_management_status == "banned" %}selected{% endif %}>banned</option>
+                </select>
+            </div>
+        </div>
+        <div class="mini-grid block-spacer">
+            <div>
+                <label class="muted" for="user-role">Role</label>
+                <select class="input" id="user-role" name="role">
+                    <option value="all" {% if user_management_role == "all" %}selected{% endif %}>all roles</option>
+                    <option value="buyers" {% if user_management_role == "buyers" %}selected{% endif %}>buyers only</option>
+                    <option value="sellers" {% if user_management_role == "sellers" %}selected{% endif %}>sellers only</option>
+                    <option value="both" {% if user_management_role == "both" %}selected{% endif %}>buyer + seller</option>
+                    <option value="new" {% if user_management_role == "new" %}selected{% endif %}>new users</option>
+                </select>
+            </div>
+            <div style="display:flex; align-items:end; gap:8px; flex-wrap:wrap;">
+                <button type="submit" class="primary"><i class="fa-solid fa-magnifying-glass" style="margin-right:6px;"></i>Apply</button>
+                <a class="button" href="/dashboard/users"><i class="fa-solid fa-rotate-left" style="margin-right:6px;"></i>Reset</a>
+            </div>
+        </div>
+    </form>
+    <div class="row-actions block-spacer">
+        <span class="badge open">buyers {{ buyers_count_label }}</span>
+        <span class="badge open">sellers {{ sellers_count_label }}</span>
+        <span class="badge open">both {{ both_count_label }}</span>
+        <span class="badge open">new {{ new_count_label }}</span>
+    </div>
+</article>
+
+<article class="panel">
+    <h2><i class="fa-solid fa-address-card" style="margin-right:8px;"></i>User Directory</h2>
+    <p class="lead">Update status directly, review warning history, and identify whether the user participates as a buyer, seller, or both.</p>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Activity</th>
+                    <th>Status</th>
+                    <th>Update</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in managed_users %}
+                <tr>
+                    <td>
+                        <strong>{{ user.username }}</strong><br>
+                        <span class="muted">{{ user.email }}</span>
+                        {% if user.first_name or user.last_name %}
+                        <div class="muted">{{ (user.first_name or "") ~ (" " if user.first_name and user.last_name else "") ~ (user.last_name or "") }}</div>
+                        {% endif %}
+                        <div class="muted">#{{ user.account_id }}{% if user.campus %} · {{ user.campus }}{% endif %}</div>
+                    </td>
+                    <td>
+                        <span class="badge open">{{ user.role_label }}</span>
+                        {% if user.is_verified %}
+                        <div class="block-spacer"><span class="badge approved">verified seller</span></div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div><strong>{{ user.listing_count }}</strong> listing{% if user.listing_count != 1 %}s{% endif %}</div>
+                        <div class="muted"><strong>{{ user.purchase_count }}</strong> purchase{% if user.purchase_count != 1 %}s{% endif %}</div>
+                        <div class="muted">Warnings: {{ user.warning_count }}</div>
+                        <div class="muted">Last warned: {{ user.last_warned_at or "-" }}</div>
+                    </td>
+                    <td>
+                        <span class="badge {{ user.account_status or 'open' }}">{{ user.account_status }}</span>
+                        <div class="muted block-spacer">Created {{ user.created_at or "-" }}</div>
+                    </td>
+                    <td>
+                        <div class="mini-grid">
+                            <div>
+                                <label class="muted">Status</label>
+                                <select class="input" name="account_status" form="user-form-{{ user.account_id }}">
+                                    <option value="active" {% if user.account_status == "active" %}selected{% endif %}>active</option>
+                                    <option value="warned" {% if user.account_status == "warned" %}selected{% endif %}>warned</option>
+                                    <option value="suspended" {% if user.account_status == "suspended" %}selected{% endif %}>suspended</option>
+                                    <option value="banned" {% if user.account_status == "banned" %}selected{% endif %}>banned</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row-actions block-spacer">
+                            <form id="user-form-{{ user.account_id }}" method="post" action="/dashboard/users/{{ user.account_id }}/update">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="q" value="{{ user_management_query or '' }}">
+                                <input type="hidden" name="status" value="{{ user_management_status }}">
+                                <input type="hidden" name="role" value="{{ user_management_role }}">
+                                <input type="hidden" name="page" value="{{ managed_users_pagination.page }}">
+                                <button type="submit" class="primary"><i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i>Save</button>
+                            </form>
+                            <form method="post" action="/dashboard/messages/start">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="target_user_id" value="{{ user.account_id }}">
+                                <input type="hidden" name="conversation_type" value="user_management_followup">
+                                <input type="hidden" name="initial_message" value="We are contacting you from the dashboard regarding your account status.">
+                                <button type="submit"><i class="fa-regular fa-envelope" style="margin-right:6px;"></i>Message</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="muted">No users matched the current filters.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if managed_users_count %}
+    <div class="row-actions block-spacer">
+        {% if managed_users_pagination.has_prev %}
+        <a class="button" href="{{ managed_users_pagination.prev_url }}"><i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i>Previous</a>
+        {% endif %}
+        <span class="muted" style="display:inline-flex; align-items:center;">Page {{ managed_users_pagination.page }} of {{ managed_users_pagination.total_pages }}</span>
+        {% if managed_users_pagination.has_next %}
+        <a class="button" href="{{ managed_users_pagination.next_url }}">Next<i class="fa-solid fa-arrow-right" style="margin-left:6px;"></i></a>
+        {% endif %}
+    </div>
+    {% endif %}
+</article>
