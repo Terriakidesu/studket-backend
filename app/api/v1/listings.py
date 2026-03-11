@@ -105,6 +105,30 @@ def _get_listing(item_id: int, db: Session) -> Listing:
     return instance
 
 
+def _get_account_listing_items(
+    account_id: int,
+    db: Session,
+    *,
+    listing_type: str | None = None,
+) -> list[Listing]:
+    account = (
+        db.query(Account)
+        .filter(Account.account_id == account_id, Account.account_type == "user")
+        .first()
+    )
+    if account is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User account not found",
+        )
+
+    query = db.query(Listing).filter(Listing.seller_id == account_id)
+    if listing_type is not None:
+        query = query.filter(Listing.listing_type == listing_type)
+
+    return query.order_by(Listing.created_at.desc(), Listing.listing_id.desc()).all()
+
+
 def _require_user_profile(user_id: int, db: Session) -> None:
     profile = (
         db.query(UserProfile)
@@ -226,6 +250,33 @@ def search(
 def list_items(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
     items = db.query(Listing).all()
     return jsonable_encoder([_present_listing_with_media(item, db) for item in items])
+
+
+@router.get("/users/{account_id}")
+def get_user_listings(account_id: int, db: Session = Depends(get_db)) -> dict[str, Any]:
+    items = _get_account_listing_items(account_id, db)
+    payload_items = [_present_listing_with_media(item, db) for item in items]
+    return jsonable_encoder(
+        {
+            "account_id": account_id,
+            "count": len(payload_items),
+            "items": payload_items,
+        }
+    )
+
+
+@router.get("/users/{account_id}/looking-for")
+def get_user_looking_for_posts(account_id: int, db: Session = Depends(get_db)) -> dict[str, Any]:
+    items = _get_account_listing_items(account_id, db, listing_type="looking_for")
+    payload_items = [_present_listing_with_media(item, db) for item in items]
+    return jsonable_encoder(
+        {
+            "account_id": account_id,
+            "listing_type": "looking_for",
+            "count": len(payload_items),
+            "items": payload_items,
+        }
+    )
 
 
 @router.get("/{item_id}")

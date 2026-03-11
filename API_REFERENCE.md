@@ -1214,6 +1214,116 @@ Response:
   - `media`
   - `primary_media_url`
 
+### GET `/api/v1/listings/users/{account_id}`
+
+Lists all listings created by one user account.
+
+Access:
+
+- User-facing route
+
+Path arguments:
+
+- `account_id` `integer`, required
+  - Must point to an existing `user` account
+
+Behavior notes:
+
+- Returns both normal listings and `looking_for` posts for that user
+- Results are ordered by:
+  - `created_at DESC`
+  - `listing_id DESC`
+- Each item uses the same enriched listing payload as the other listings endpoints
+
+Response shape:
+
+```json
+{
+  "account_id": 44,
+  "count": 1,
+  "items": [
+    {
+      "listing_id": 9,
+      "seller_id": 44,
+      "owner_id": 44,
+      "title": "Linear Algebra Book",
+      "listing_type": "single_item",
+      "status": "available",
+      "tags": ["books", "math"],
+      "media": [],
+      "primary_media_url": null,
+      "seller_profile_available": true
+    }
+  ]
+}
+```
+
+Response fields:
+
+- `account_id` `integer`
+- `count` `integer`
+- `items` `object[]`
+
+Possible errors:
+
+- `404 {"detail":"User account not found"}`
+
+### GET `/api/v1/listings/users/{account_id}/looking-for`
+
+Lists only the `looking_for` posts created by one user account.
+
+Access:
+
+- User-facing route
+
+Path arguments:
+
+- `account_id` `integer`, required
+  - Must point to an existing `user` account
+
+Behavior notes:
+
+- Filters the user’s listings to `listing_type = "looking_for"`
+- Results are ordered by:
+  - `created_at DESC`
+  - `listing_id DESC`
+
+Response shape:
+
+```json
+{
+  "account_id": 44,
+  "listing_type": "looking_for",
+  "count": 1,
+  "items": [
+    {
+      "listing_id": 11,
+      "seller_id": 44,
+      "owner_id": 44,
+      "poster_id": 44,
+      "title": "Looking for a used calculator",
+      "listing_type": "looking_for",
+      "status": "available",
+      "tags": ["calculator"],
+      "media": [],
+      "primary_media_url": null,
+      "seller_profile_available": true
+    }
+  ]
+}
+```
+
+Response fields:
+
+- `account_id` `integer`
+- `listing_type` always `"looking_for"`
+- `count` `integer`
+- `items` `object[]`
+
+Possible errors:
+
+- `404 {"detail":"User account not found"}`
+
 ### GET `/api/v1/listings/{item_id}`
 
 Fetches one listing by `listing_id`.
@@ -1855,6 +1965,58 @@ Possible errors:
 Base path:
 
 - `/api/v1/tags`
+
+#### GET `/api/v1/tags/popular`
+
+Returns the most-used tags ranked by how many listings use them.
+
+Access:
+
+- User-facing route
+
+Query arguments:
+
+- `limit` `integer`, optional, default `20`
+  - Minimum `1`
+  - Maximum `100`
+- `include_unavailable` `boolean`, optional, default `false`
+  - When `false`, only tags attached to `available` listings are counted
+  - When `true`, all listings are counted regardless of listing status
+
+Response shape:
+
+```json
+{
+  "count": 3,
+  "limit": 20,
+  "include_unavailable": false,
+  "items": [
+    {
+      "tag_id": 1,
+      "tag_name": "books",
+      "listing_count": 12
+    },
+    {
+      "tag_id": 7,
+      "tag_name": "calculator",
+      "listing_count": 8
+    }
+  ]
+}
+```
+
+Response fields:
+
+- `count` `integer`
+- `limit` `integer`
+- `include_unavailable` `boolean`
+- `items` `object[]`
+
+Item fields:
+
+- `tag_id` `integer`
+- `tag_name` `string`
+- `listing_count` `integer`
 
 Primary key:
 
