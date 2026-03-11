@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.db.models import UserProfile
 from app.db.session import get_db
 from app.services.auth import (
     AuthServiceError,
@@ -42,6 +43,11 @@ def auth_error(status_code: int, message: str) -> HTTPException:
     return HTTPException(status_code=status_code, detail={"error": message})
 
 
+def _is_trusted_seller(account_id: int, db: Session) -> bool:
+    profile = db.query(UserProfile).filter(UserProfile.user_id == account_id).first()
+    return bool(profile and profile.is_verified)
+
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     try:
@@ -69,6 +75,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         "username": account.username,
         "account_type": account.account_type,
         "marketplace_role": get_marketplace_role(account, db),
+        "trusted_seller": _is_trusted_seller(account.account_id, db),
     }
 
 
@@ -93,6 +100,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             "account_type": account.account_type,
             "account_status": account.account_status,
             "marketplace_role": get_marketplace_role(account, db),
+            "trusted_seller": _is_trusted_seller(account.account_id, db),
         },
     }
 
@@ -109,7 +117,7 @@ def request_seller_access(payload: SellerStatusRequest, db: Session = Depends(ge
         raise auth_error(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
     return {
-        "message": "Seller access request submitted",
+        "message": "Trusted seller verification request submitted",
         "request_id": verification_request.request_id,
         "account_id": verification_request.user_id,
         "status": verification_request.status,

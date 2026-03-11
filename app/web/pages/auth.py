@@ -1592,8 +1592,8 @@ def approve_verification(
         db,
         user_id=verification_request.user_id,
         notification_type="seller_verification",
-        title="Seller verification approved",
-        body="Your seller verification request was approved.",
+        title="Trusted seller status approved",
+        body="Your trusted seller verification request was approved.",
         related_entity_type="seller_verification_request",
         related_entity_id=verification_request.request_id,
     )
@@ -1607,7 +1607,7 @@ def approve_verification(
         target_type="seller_verification_request",
         target_id=str(verification_request.request_id),
         target_label=str(verification_request.user_id),
-        details=review_note.strip() or "Approved seller verification request",
+        details=review_note.strip() or "Approved trusted seller verification request",
     )
     db.commit()
     if notification_payload is not None:
@@ -1653,8 +1653,8 @@ def reject_verification(
         db,
         user_id=verification_request.user_id,
         notification_type="seller_verification",
-        title="Seller verification rejected",
-        body="Your seller verification request was rejected.",
+        title="Trusted seller status removed",
+        body="Your trusted seller verification status was rejected or removed.",
         related_entity_type="seller_verification_request",
         related_entity_id=verification_request.request_id,
     )
@@ -1667,7 +1667,7 @@ def reject_verification(
         target_type="seller_verification_request",
         target_id=str(verification_request.request_id),
         target_label=str(verification_request.user_id),
-        details=review_note.strip() or "Rejected seller verification request",
+        details=review_note.strip() or "Rejected or removed trusted seller verification",
     )
     db.commit()
     if notification_payload is not None:

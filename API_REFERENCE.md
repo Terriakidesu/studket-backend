@@ -110,9 +110,7 @@ The listings router may return plain-string `detail` values such as:
 
 - `"Listing not found"`
 - `"seller_id is required"`
-- `"Seller profile not found"`
 - `"User profile not found"`
-- `"Seller access requires approved seller status"`
 
 ## Endpoint Inventory
 
@@ -199,10 +197,11 @@ Arguments:
 Behavior notes:
 
 - Marketplace users are created as `account_type: "user"`.
-- The API now exposes `marketplace_role`.
+- The API exposes both `marketplace_role` and `trusted_seller`.
 - For `user` accounts:
   - `marketplace_role` is `buyer` by default
-  - It becomes `seller` only after approved seller verification
+  - It becomes `seller` once the user participates as a seller in marketplace activity
+  - `trusted_seller` is a separate staff-controlled trust status
 
 Success response:
 
@@ -213,7 +212,8 @@ Success response:
   "email": "user@example.com",
   "username": "campusbuyer1",
   "account_type": "user",
-  "marketplace_role": "buyer"
+  "marketplace_role": "buyer",
+  "trusted_seller": false
 }
 ```
 
@@ -265,7 +265,8 @@ Success response:
     "username": "campusbuyer1",
     "account_type": "user",
     "account_status": "active",
-    "marketplace_role": "buyer"
+    "marketplace_role": "buyer",
+    "trusted_seller": false
   }
 }
 ```
@@ -278,7 +279,7 @@ Possible errors:
 
 ### POST `/api/v1/auth/seller-status/request`
 
-Creates a seller verification request for a normal marketplace user.
+Creates a trusted-seller verification request for a normal marketplace user.
 
 Access:
 
@@ -289,7 +290,7 @@ Request body:
 ```json
 {
   "account_id": 12,
-  "submission_note": "I want to start selling textbooks."
+  "submission_note": "I want trusted seller status for my store."
 }
 ```
 
@@ -299,18 +300,21 @@ Arguments:
   - Must reference an existing `Account`
   - The account must have `account_type = "user"`
 - `submission_note` `string | null`, optional
-  - Freeform reason or context for requesting seller status
+  - Freeform reason or context for requesting trusted-seller review
 
 Behavior notes:
 
-- If an identical pending seller request already exists, the API returns that existing request instead of creating a duplicate.
-- If the user is already a verified seller, the request is rejected.
+- This endpoint is not required for becoming a seller.
+- Any marketplace user can act as a seller without staff approval.
+- This request only asks staff to grant trusted-seller status.
+- If an identical pending request already exists, the API returns that existing request instead of creating a duplicate.
+- If the user is already a trusted seller, the request is rejected.
 
 Success response:
 
 ```json
 {
-  "message": "Seller access request submitted",
+  "message": "Trusted seller verification request submitted",
   "request_id": 5,
   "account_id": 12,
   "status": "pending"
@@ -321,7 +325,7 @@ Possible errors:
 
 - `400 {"detail":{"error":"User account not found"}}`
 - `400 {"detail":{"error":"User profile not found"}}`
-- `400 {"detail":{"error":"User is already a seller"}}`
+- `400 {"detail":{"error":"User is already a trusted seller"}}`
 
 ## Listings Endpoints
 
@@ -331,8 +335,9 @@ This router is custom and does not follow the generic CRUD behavior exactly.
 
 ### Listing role rules
 
-- Standard marketplace listings require an approved seller.
-- `looking_for` posts may be created by any existing marketplace user profile.
+- Any marketplace user with a valid `UserProfile` can create standard listings.
+- Any marketplace user with a valid `UserProfile` can also create `looking_for` posts.
+- Trusted-seller verification is a separate trust signal and does not gate listing creation.
 - The database column is still `seller_id`, but the API now also exposes a neutral alias:
   - `owner_id` for all listing types
   - `poster_id` for `looking_for` posts
@@ -382,6 +387,7 @@ Response shape:
       "recommendation_score": 7.8,
       "recommendation_reasons": ["available", "recent"],
       "seller_is_verified": true,
+      "seller_is_trusted": true,
       "seller_average_rating": 4.9,
       "seller_review_count": 12
     }
@@ -401,6 +407,7 @@ Feed item fields:
 - `recommendation_score` `number`
 - `recommendation_reasons` `string[]`
 - `seller_is_verified` `boolean`
+- `seller_is_trusted` `boolean`
 - `seller_average_rating` `number | null`
 - `seller_review_count` `integer`
 
@@ -458,6 +465,7 @@ Response shape:
       "search_score": 8.5,
       "search_reasons": ["title_match"],
       "seller_is_verified": true,
+      "seller_is_trusted": true,
       "seller_average_rating": 4.9,
       "seller_review_count": 12
     }
@@ -538,10 +546,9 @@ Validation rules:
 
 - A creator identifier is required:
   - `owner_id` or `seller_id`
-- For `listing_type = "looking_for"`:
+- For all listing types, including `looking_for`:
   - the creator only needs an existing `UserProfile`
-- For all other listing types:
-  - the creator must have `UserProfile.is_verified = true`
+- Trusted-seller approval is not required for creating or updating listings
 
 Examples:
 
@@ -575,8 +582,6 @@ Looking-for post:
 Possible errors:
 
 - `400 {"detail":"seller_id is required"}`
-- `403 {"detail":"Seller access requires approved seller status"}`
-- `404 {"detail":"Seller profile not found"}`
 - `404 {"detail":"User profile not found"}`
 
 ### PATCH `/api/v1/listings/{item_id}`
@@ -599,7 +604,7 @@ Request body:
 Validation notes:
 
 - If `seller_id`, `owner_id`, or `listing_type` changes, creator-role validation runs again.
-- This prevents converting a `looking_for` post into a seller listing unless the owner is a verified seller.
+- The validation only checks that the owner has a valid `UserProfile`.
 
 ### DELETE `/api/v1/listings/{item_id}`
 
@@ -628,6 +633,11 @@ Every CRUD router created with `create_crud_router()` exposes the same endpoint 
 - `DELETE /api/v1/<resource>/{item_id}`
 
 All CRUD routers below require a management or superadmin session.
+
+Exceptions:
+
+- `/api/v1/listings` is a custom router documented earlier.
+- `/api/v1/listing-media` is also a custom router and is documented separately below.
 
 ### Generic path argument
 
@@ -737,16 +747,178 @@ Base path:
 
 - `/api/v1/listing-media`
 
-Primary key:
+Access:
 
-- `media_id`
+- Management session required
 
-Fields:
+This resource is not a generic CRUD wrapper anymore. It supports both direct media record creation and multipart image upload.
+
+Response shape:
+
+```json
+{
+  "media_id": 3,
+  "listing_id": 9,
+  "file_path": "/static/listing-media/9/abc123def456.jpg",
+  "file_url": "/static/listing-media/9/abc123def456.jpg",
+  "sort_order": 0
+}
+```
+
+Response fields:
 
 - `media_id` `integer`
 - `listing_id` `integer | null`
 - `file_path` `string | null`
+- `file_url` `string | null`
+  - Public URL alias for `file_path`
 - `sort_order` `integer | null`
+
+#### GET `/api/v1/listing-media/`
+
+Lists all listing media rows ordered by:
+
+1. `listing_id`
+2. `sort_order`
+3. `media_id`
+
+#### GET `/api/v1/listing-media/{item_id}`
+
+Fetches one media row by `media_id`.
+
+Path arguments:
+
+- `item_id` `integer`, required
+
+Possible errors:
+
+- `404 {"detail":"ListingMedia not found"}`
+
+#### POST `/api/v1/listing-media/`
+
+Creates a media row from an existing public path.
+
+Request body:
+
+```json
+{
+  "listing_id": 9,
+  "file_path": "/static/listing-media/9/example.jpg",
+  "sort_order": 0
+}
+```
+
+Arguments:
+
+- `listing_id` `integer`, required
+  - Must point to an existing listing
+- `file_path` `string`, required
+  - Accepted forms:
+    - `/static/listing-media/9/example.jpg`
+    - `static/listing-media/9/example.jpg`
+    - `listing-media/9/example.jpg`
+- `sort_order` `integer | null`, optional
+
+Behavior notes:
+
+- The backend normalizes slashes and static prefixes.
+- This route is for attaching already-available static media.
+- It does not upload the file itself.
+
+Possible errors:
+
+- `400 {"detail":"listing_id is required"}`
+- `400 {"detail":"file_path is required"}`
+- `404 {"detail":"Listing not found"}`
+
+#### POST `/api/v1/listing-media/upload`
+
+Uploads a media file, stores it on disk, and creates the `ListingMedia` row.
+
+Request type:
+
+- `multipart/form-data`
+
+Form arguments:
+
+- `listing_id` `integer`, required
+  - Must point to an existing listing
+- `sort_order` `integer`, optional, default `0`
+- `file` `binary`, required
+
+Accepted file extensions:
+
+- `.jpg`
+- `.jpeg`
+- `.png`
+- `.webp`
+- `.gif`
+
+Storage behavior:
+
+- Files are written under `app/static/listing-media/<listing_id>/`
+- File names are randomized with a UUID-based name
+- The stored DB path is returned as a public `/static/...` URL
+
+Example response:
+
+```json
+{
+  "media_id": 3,
+  "listing_id": 9,
+  "file_path": "/static/listing-media/9/3d0f9d4c0f96428eb17d0f8b8f4d3f1a.jpg",
+  "file_url": "/static/listing-media/9/3d0f9d4c0f96428eb17d0f8b8f4d3f1a.jpg",
+  "sort_order": 0
+}
+```
+
+Possible errors:
+
+- `400 {"detail":"file is required"}`
+- `400 {"detail":"Unsupported media type. Allowed extensions: .gif, .jpeg, .jpg, .png, .webp"}`
+- `404 {"detail":"Listing not found"}`
+
+Operational note:
+
+- This route depends on FastAPI multipart support at runtime.
+- In practice, `python-multipart` must be installed for the upload endpoint to work.
+
+#### PATCH `/api/v1/listing-media/{item_id}`
+
+Updates an existing media row.
+
+Path arguments:
+
+- `item_id` `integer`, required
+
+Writable fields:
+
+- `listing_id`
+- `file_path`
+- `sort_order`
+
+Behavior notes:
+
+- `listing_id` is validated against the `listing` table if changed.
+- `file_path` is normalized to a public static path if changed.
+
+Possible errors:
+
+- `404 {"detail":"ListingMedia not found"}`
+- `404 {"detail":"Listing not found"}`
+
+#### DELETE `/api/v1/listing-media/{item_id}`
+
+Deletes the media row.
+
+Behavior notes:
+
+- If the stored `file_path` points into `/static/listing-media/...`, the corresponding file is also deleted from disk.
+- If its parent listing-media folder becomes empty, that folder is removed as well.
+
+Possible errors:
+
+- `404 {"detail":"ListingMedia not found"}`
 
 ### Tags
 
@@ -1029,7 +1201,7 @@ The app uses Starlette session middleware, not token-based API auth:
 
 - Use `/api/v1/auth/register` for creating marketplace, management, or superadmin accounts.
 - Use `/api/v1/auth/login` for account credential checks.
-- Use `/api/v1/auth/seller-status/request` when a buyer wants to become a seller.
+- Use `/api/v1/auth/seller-status/request` when a seller wants staff-reviewed trusted-seller status.
 - Use `/api/v1/listings` for listing and `looking_for` management.
 - Use the CRUD endpoints only when you intentionally want direct table-level access from the management console.
 
@@ -1039,3 +1211,4 @@ The app uses Starlette session middleware, not token-based API auth:
 - CRUD `POST` and `PATCH` accept raw model-shaped JSON, so validation is intentionally thin.
 - `listing_tags` is exposed through a single-key CRUD route even though the table is really keyed by both `listing_id` and `tag_id`.
 - The listings API still stores ownership in `seller_id` internally, but now also exposes `owner_id` and `poster_id` to reduce ambiguity for `looking_for` posts.
+- `seller_is_verified` currently mirrors trusted-seller state for backward compatibility. Prefer `trusted_seller` or `seller_is_trusted` in new clients.

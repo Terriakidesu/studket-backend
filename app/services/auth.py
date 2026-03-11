@@ -12,6 +12,7 @@ from app.core.security import (
 from app.db.models import (
     Account,
     AppSetting,
+    Listing,
     ManagementAccount,
     SellerVerificationRequest,
     UserProfile,
@@ -54,12 +55,15 @@ def get_marketplace_role(account: Account, db: Session | None = None) -> str:
     if db is None:
         return "buyer"
 
-    profile = (
-        db.query(UserProfile)
-        .filter(UserProfile.user_id == account.account_id)
+    has_listing = (
+        db.query(Listing.listing_id)
+        .filter(
+            Listing.seller_id == account.account_id,
+            Listing.listing_type != "looking_for",
+        )
         .first()
     )
-    if profile and profile.is_verified:
+    if has_listing is not None:
         return "seller"
     return "buyer"
 
@@ -86,7 +90,7 @@ def request_seller_status(
     if profile is None:
         raise AuthServiceError("User profile not found")
     if profile.is_verified:
-        raise AuthServiceError("User is already a seller")
+        raise AuthServiceError("User is already a trusted seller")
 
     existing_request = (
         db.query(SellerVerificationRequest)

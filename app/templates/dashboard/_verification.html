@@ -1,6 +1,6 @@
 <article class="panel">
     <h2><i class="fa-solid fa-user-check" style="margin-right:8px;"></i>Seller Verification Requests</h2>
-    <p class="lead">Review pending seller verification submissions and approve or reject them directly.</p>
+    <p class="lead">Review trusted seller verification submissions and approve, reject, or remove that trust directly.</p>
     <div class="table-wrap">
         <table>
             <thead>
@@ -39,13 +39,13 @@
                             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                             <input type="hidden" name="target_user_id" value="{{ request_row.user_id }}">
                             <input type="hidden" name="conversation_type" value="verification_support">
-                            <textarea name="initial_message" placeholder="Optional message to seller about verification"></textarea>
+                            <textarea name="initial_message" placeholder="Optional message to seller about trusted seller verification"></textarea>
                             <div class="row-actions"><button type="submit"><i class="fa-regular fa-envelope" style="margin-right:6px;"></i>Message Seller</button></div>
                         </form>
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="5" class="muted">No seller verification requests yet.</td></tr>
+                <tr><td colspan="5" class="muted">No trusted seller verification requests yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

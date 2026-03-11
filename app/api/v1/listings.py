@@ -39,24 +39,6 @@ def _get_listing(item_id: int, db: Session) -> Listing:
     return instance
 
 
-def _require_verified_seller(seller_id: int, db: Session) -> None:
-    profile = (
-        db.query(UserProfile)
-        .filter(UserProfile.user_id == seller_id)
-        .first()
-    )
-    if profile is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Seller profile not found",
-        )
-    if not profile.is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Seller access requires approved seller status",
-        )
-
-
 def _require_user_profile(user_id: int, db: Session) -> None:
     profile = (
         db.query(UserProfile)
@@ -77,12 +59,7 @@ def _validate_listing_creator(payload: dict[str, Any], db: Session) -> None:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="seller_id is required",
         )
-
-    if payload.get("listing_type") == "looking_for":
-        _require_user_profile(seller_id, db)
-        return
-
-    _require_verified_seller(seller_id, db)
+    _require_user_profile(seller_id, db)
 
 
 @router.get("/feed")
