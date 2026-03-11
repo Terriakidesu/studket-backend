@@ -14,13 +14,16 @@ from app.db.models import (
     Conversation,
     ConversationReport,
     Listing,
+    ListingMedia,
     ListingReport,
+    ListingTag,
     LookingForReport,
     ManagementAccount,
     Message,
     Review,
     SellerReport,
     SellerVerificationRequest,
+    Tag,
     Transaction,
     UserProfile,
 )
@@ -295,12 +298,6 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
     sellers_count = (
         db.query(func.count(func.distinct(Listing.seller_id)))
         .filter(Listing.seller_id.isnot(None))
-        .scalar()
-        or 0
-    )
-    buyers_count = (
-        db.query(func.count(func.distinct(Transaction.buyer_id)))
-        .filter(Transaction.buyer_id.isnot(None))
         .scalar()
         or 0
     )
@@ -640,6 +637,22 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
             if row.listing_type not in {"single_item", "stock_item", "looking_for"}
         ),
     }
+    popular_tags = (
+        db.query(
+            Tag.tag_name,
+            func.count(func.distinct(ListingTag.listing_id)).label("listing_count"),
+        )
+        .join(ListingTag, ListingTag.tag_id == Tag.tag_id)
+        .join(Listing, Listing.listing_id == ListingTag.listing_id)
+        .filter(Listing.status == "available")
+        .group_by(Tag.tag_id, Tag.tag_name)
+        .order_by(
+            func.count(func.distinct(ListingTag.listing_id)).desc(),
+            Tag.tag_name.asc(),
+        )
+        .limit(10)
+        .all()
+    )
 
     return {
         "request": request,
@@ -648,7 +661,6 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         "csrf_token": csrf_token,
         "metrics": {
             "total_users": total_users,
-            "buyers_count": buyers_count,
             "sellers_count": sellers_count,
             "listings_count": listings_count,
             "open_reports_count": total_open_reports,
@@ -678,12 +690,15 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         "chart_data": {
             "marketplace_mix": {
                 "users": total_users,
-                "buyers": buyers_count,
                 "sellers": sellers_count,
                 "listings": listings_count,
             },
             "verification_status": verification_chart,
             "listing_types": listing_type_chart,
+            "popular_tags": {
+                "labels": [row.tag_name for row in popular_tags],
+                "counts": [row.listing_count for row in popular_tags],
+            },
             "report_categories": {
                 "listing": open_listing_reports,
                 "looking_for": open_looking_for_reports,
@@ -1077,6 +1092,88 @@ def _build_user_management_context(
     }
 
 
+def _build_listing_monitoring_context(db: Session) -> dict[str, list]:
+    all_listings = (
+        db.query(
+            Listing.listing_id,
+            Listing.seller_id,
+            Listing.title,
+            Listing.listing_type,
+            Listing.status,
+            Listing.price,
+            Listing.created_at,
+            Account.username.label("seller_username"),
+        )
+        .outerjoin(Account, Account.account_id == Listing.seller_id)
+        .filter(or_(Listing.listing_type.is_(None), Listing.listing_type != "looking_for"))
+        .order_by(Listing.created_at.desc(), Listing.listing_id.desc())
+        .all()
+    )
+
+    all_looking_for_posts = (
+        db.query(
+            Listing.listing_id,
+            Listing.seller_id.label("requester_id"),
+            Listing.title,
+            Listing.status,
+            Listing.price,
+            Listing.created_at,
+            Account.username.label("requester_username"),
+        )
+        .outerjoin(Account, Account.account_id == Listing.seller_id)
+        .filter(Listing.listing_type == "looking_for")
+        .order_by(Listing.created_at.desc(), Listing.listing_id.desc())
+        .all()
+    )
+
+    return {
+        "all_listings": all_listings,
+        "all_looking_for_posts": all_looking_for_posts,
+    }
+
+
+def _build_listing_detail_context(db: Session, *, listing_id: int) -> dict | None:
+    row = (
+        db.query(
+            Listing,
+            Account.username.label("seller_username"),
+            UserProfile.campus.label("seller_campus"),
+            UserProfile.first_name.label("seller_first_name"),
+            UserProfile.last_name.label("seller_last_name"),
+        )
+        .outerjoin(Account, Account.account_id == Listing.seller_id)
+        .outerjoin(UserProfile, UserProfile.user_id == Listing.seller_id)
+        .filter(Listing.listing_id == listing_id)
+        .first()
+    )
+    if row is None:
+        return None
+
+    listing, seller_username, seller_campus, seller_first_name, seller_last_name = row
+    media = (
+        db.query(ListingMedia)
+        .filter(ListingMedia.listing_id == listing.listing_id)
+        .order_by(ListingMedia.sort_order.asc(), ListingMedia.media_id.asc())
+        .all()
+    )
+    tag_rows = (
+        db.query(Tag.tag_name)
+        .join(ListingTag, ListingTag.tag_id == Tag.tag_id)
+        .filter(ListingTag.listing_id == listing.listing_id)
+        .order_by(Tag.tag_name.asc())
+        .all()
+    )
+    return {
+        "listing": listing,
+        "seller_username": seller_username,
+        "seller_campus": seller_campus,
+        "seller_first_name": seller_first_name,
+        "seller_last_name": seller_last_name,
+        "media": media,
+        "tags": [row.tag_name for row in tag_rows],
+    }
+
+
 @router.get("/auth", response_class=HTMLResponse)
 def auth_portal(request: Request):
     return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
@@ -1347,6 +1444,53 @@ def dashboard_moderation(
         }
     )
     return templates.TemplateResponse("dashboard/moderation.html", context)
+
+
+@router.get("/dashboard/monitoring", response_class=HTMLResponse)
+def dashboard_monitoring(request: Request, db: Session = Depends(get_db)):
+    try:
+        context = _build_dashboard_context(request, db)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    monitoring = _build_listing_monitoring_context(db)
+    context.update(
+        {
+            "active_page": "monitoring",
+            "page_title": "Marketplace Monitoring",
+            "page_description": "Monitor all active marketplace listings and looking-for posts in one place.",
+            "all_listings": monitoring["all_listings"],
+            "all_looking_for_posts": monitoring["all_looking_for_posts"],
+        }
+    )
+    return templates.TemplateResponse("dashboard/monitoring.html", context)
+
+
+@router.get("/dashboard/listings/{listing_id}", response_class=HTMLResponse)
+def dashboard_listing_detail(
+    listing_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    try:
+        context = _build_dashboard_context(request, db)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    detail = _build_listing_detail_context(db, listing_id=listing_id)
+    if detail is None:
+        return RedirectResponse(url="/dashboard/monitoring", status_code=status.HTTP_303_SEE_OTHER)
+
+    listing = detail["listing"]
+    context.update(
+        {
+            "active_page": "monitoring",
+            "page_title": "Listing Detail" if listing.listing_type != "looking_for" else "Looking-For Detail",
+            "page_description": "Review the full listing or looking-for post details from the dashboard.",
+            "listing_detail": detail,
+        }
+    )
+    return templates.TemplateResponse("dashboard/listing_detail.html", context)
 
 
 @router.get("/dashboard/messages", response_class=HTMLResponse)

@@ -1,0 +1,118 @@
+{% set all_listings_count_label = "99+" if all_listings|length > 99 else all_listings|length %}
+{% set all_looking_for_count_label = "99+" if all_looking_for_posts|length > 99 else all_looking_for_posts|length %}
+
+<article class="panel">
+    <h2><i class="fa-solid fa-binoculars" style="margin-right:8px;"></i>Marketplace Monitoring</h2>
+    <p class="lead">Review the full inventory of listings and looking-for posts outside the moderation queue.</p>
+    <section class="grid metrics">
+        <article class="metric"><small>All Listings</small><strong>{{ all_listings|length }}</strong></article>
+        <article class="metric"><small>All Looking For</small><strong>{{ all_looking_for_posts|length }}</strong></article>
+    </section>
+</article>
+
+<article class="panel tabs" data-tabs>
+    <div class="tab-list" role="tablist" aria-label="Monitoring sections">
+        <button type="button" class="button tab-button active" data-tab-target="all-listings" role="tab" aria-selected="true">1. All Listings<span class="sidebar-badge">{{ all_listings_count_label }}</span></button>
+        <button type="button" class="button tab-button" data-tab-target="all-looking-for" role="tab" aria-selected="false">2. All Looking For<span class="sidebar-badge">{{ all_looking_for_count_label }}</span></button>
+    </div>
+</article>
+
+<article class="panel tab-panel" id="all-listings" data-tab-panel="all-listings" role="tabpanel">
+    <h2><i class="fa-solid fa-store" style="margin-right:8px;"></i>All Listings</h2>
+    <p class="lead">Full marketplace listing inventory for monitoring.</p>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Listing</th>
+                    <th>Seller</th>
+                    <th>Status</th>
+                    <th>Price</th>
+                    <th>Created</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for listing in all_listings %}
+                <tr>
+                    <td><strong>{{ listing.title }}</strong><br><span class="muted">#{{ listing.listing_id }} · {{ listing.listing_type or "listing" }}</span></td>
+                    <td>{{ listing.seller_username or "unknown" }}</td>
+                    <td>{{ listing.status or "unknown" }}</td>
+                    <td>{{ listing.price or "-" }}</td>
+                    <td>{{ listing.created_at or "-" }}</td>
+                    <td>
+                        <div class="row-actions" style="margin-top:0;">
+                            <a class="button" href="/dashboard/listings/{{ listing.listing_id }}"><i class="fa-solid fa-arrow-up-right-from-square" style="margin-right:6px;"></i>View</a>
+                            {% if listing.seller_id %}
+                            <form method="post" action="/dashboard/messages/start">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="target_user_id" value="{{ listing.seller_id }}">
+                                <input type="hidden" name="conversation_type" value="listing_monitoring_followup">
+                                <input type="hidden" name="initial_message" value="Management is contacting you regarding your listing.">
+                                <button type="submit"><i class="fa-regular fa-envelope" style="margin-right:6px;"></i>Message Seller</button>
+                            </form>
+                            {% endif %}
+                            <form method="post" action="/dashboard/listings/{{ listing.listing_id }}/delete">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button type="submit" class="danger"><i class="fa-solid fa-trash" style="margin-right:6px;"></i>Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="muted">No listings found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</article>
+
+<article class="panel tab-panel" id="all-looking-for" data-tab-panel="all-looking-for" role="tabpanel" hidden>
+    <h2><i class="fa-solid fa-magnifying-glass" style="margin-right:8px;"></i>All Looking-For Posts</h2>
+    <p class="lead">Full looking-for post inventory for monitoring.</p>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Post</th>
+                    <th>Requester</th>
+                    <th>Status</th>
+                    <th>Budget</th>
+                    <th>Created</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for post in all_looking_for_posts %}
+                <tr>
+                    <td><strong>{{ post.title }}</strong><br><span class="muted">#{{ post.listing_id }}</span></td>
+                    <td>{{ post.requester_username or "unknown" }}</td>
+                    <td>{{ post.status or "unknown" }}</td>
+                    <td>{{ post.price or "-" }}</td>
+                    <td>{{ post.created_at or "-" }}</td>
+                    <td>
+                        <div class="row-actions" style="margin-top:0;">
+                            <a class="button" href="/dashboard/listings/{{ post.listing_id }}"><i class="fa-solid fa-arrow-up-right-from-square" style="margin-right:6px;"></i>View</a>
+                            {% if post.requester_id %}
+                            <form method="post" action="/dashboard/messages/start">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="target_user_id" value="{{ post.requester_id }}">
+                                <input type="hidden" name="conversation_type" value="looking_for_monitoring_followup">
+                                <input type="hidden" name="initial_message" value="Management is contacting you regarding your looking-for post.">
+                                <button type="submit"><i class="fa-regular fa-envelope" style="margin-right:6px;"></i>Message User</button>
+                            </form>
+                            {% endif %}
+                            <form method="post" action="/dashboard/listings/{{ post.listing_id }}/delete">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button type="submit" class="danger"><i class="fa-solid fa-trash" style="margin-right:6px;"></i>Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="muted">No looking-for posts found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</article>

@@ -7,41 +7,14 @@
     <div class="stack">
         <article class="panel">
             <h2><i class="fa-solid fa-chart-column" style="margin-right:8px;"></i>Marketplace Mix</h2>
-            <p class="lead">A quick visual breakdown of users, buyers, sellers, and active listings.</p>
+            <p class="lead">A quick visual breakdown of users, sellers, and active listings.</p>
             <canvas id="marketplaceMixChart" height="140"></canvas>
         </article>
 
         <article class="panel">
-            <h2><i class="fa-solid fa-user-check" style="margin-right:8px;"></i>Verification Snapshot</h2>
-            <p class="lead">A brief view of the most recent trusted seller verification requests.</p>
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Seller</th>
-                            <th>Status</th>
-                            <th>Submitted</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for request_row in verification_requests[:5] %}
-                        <tr>
-                            <td>
-                                <strong>{{ request_row.username }}</strong><br>
-                                <span class="muted">{{ request_row.email }}</span>
-                            </td>
-                            <td><span class="badge {{ request_row.status }}">{{ request_row.status }}</span></td>
-                            <td>{{ request_row.created_at or "-" }}</td>
-                        </tr>
-                        {% else %}
-                        <tr><td colspan="3" class="muted">No verification requests yet.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            <div class="row-actions">
-                <a class="button" href="/dashboard/verifications"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Verification Page</a>
-            </div>
+            <h2><i class="fa-solid fa-tags" style="margin-right:8px;"></i>Popular Tags</h2>
+            <p class="lead">Most-used tags across currently available listings.</p>
+            <canvas id="popularTagsChart" height="220"></canvas>
         </article>
 
         <article class="panel">
@@ -114,15 +87,42 @@
                 <a class="button" href="/dashboard/audit"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Audit Page</a>
             </div>
         </article>
-
-        {% include "dashboard/_messages_preview.html" %}
     </div>
 
     <div class="stack">
+        {% include "dashboard/_messages_preview.html" %}
+
         <article class="panel">
-            <h2><i class="fa-solid fa-chart-pie" style="margin-right:8px;"></i>Verification Status</h2>
-            <p class="lead">Current distribution of pending, approved, and rejected verification requests.</p>
-            <canvas id="verificationStatusChart" height="220"></canvas>
+            <h2><i class="fa-solid fa-user-check" style="margin-right:8px;"></i>Verification Snapshot</h2>
+            <p class="lead">A brief view of the most recent trusted seller verification requests.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Seller</th>
+                            <th>Status</th>
+                            <th>Submitted</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for request_row in verification_requests[:5] %}
+                        <tr>
+                            <td>
+                                <strong>{{ request_row.username }}</strong><br>
+                                <span class="muted">{{ request_row.email }}</span>
+                            </td>
+                            <td><span class="badge {{ request_row.status }}">{{ request_row.status }}</span></td>
+                            <td>{{ request_row.created_at or "-" }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="muted">No verification requests yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="row-actions">
+                <a class="button" href="/dashboard/verifications"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Verification Page</a>
+            </div>
         </article>
 
         <article class="panel">
@@ -141,37 +141,6 @@
                 <a class="button" href="/dashboard/quality"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Quality Page</a>
             </div>
         </article>
-
-        <article class="panel">
-            <h2><i class="fa-solid fa-sliders" style="margin-right:8px;"></i>Settings Brief</h2>
-            <p class="lead">Current management session timeout and who can change it.</p>
-            <div>
-                <strong>{{ management_timeout_minutes }} minutes</strong><br>
-                <span class="muted">
-                    {% if is_superadmin %}
-                    You can update this from the settings page.
-                    {% else %}
-                    Only superadmin can update this value.
-                    {% endif %}
-                </span>
-            </div>
-            <div class="row-actions block-spacer">
-                <a class="button" href="/dashboard/settings"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Settings</a>
-            </div>
-        </article>
-
-        <article class="panel">
-            <h2><i class="fa-solid fa-id-card" style="margin-right:8px;"></i>Account Brief</h2>
-            <p class="lead">Summary of the currently signed-in dashboard account.</p>
-            <div class="detail-grid">
-                <div class="detail-card"><strong>Username</strong><br><span class="muted">{{ account.username }}</span></div>
-                <div class="detail-card"><strong>Email</strong><br><span class="muted">{{ account.email }}</span></div>
-                <div class="detail-card"><strong>Role</strong><br><span class="muted">{{ account.account_type }}</span></div>
-            </div>
-            <div class="row-actions block-spacer">
-                <a class="button" href="/dashboard/account"><i class="fa-solid fa-arrow-right" style="margin-right:6px;"></i>Open Account Page</a>
-            </div>
-        </article>
     </div>
 </section>
 {% endblock %}
@@ -181,22 +150,24 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
     const chartData = {{ chart_data | tojson }};
+    const computedStyle = getComputedStyle(document.body);
+    const chartTextColor = computedStyle.getPropertyValue("--muted").trim() || "#64748b";
+    const chartGridColor = computedStyle.getPropertyValue("--line").trim() || "#d5e8dc";
 
     const marketplaceMixCtx = document.getElementById("marketplaceMixChart");
     if (marketplaceMixCtx) {
         new Chart(marketplaceMixCtx, {
             type: "bar",
             data: {
-                labels: ["Users", "Buyers", "Sellers", "Listings"],
+                labels: ["Users", "Sellers", "Listings"],
                 datasets: [{
                     label: "Count",
                     data: [
                         chartData.marketplace_mix.users,
-                        chartData.marketplace_mix.buyers,
                         chartData.marketplace_mix.sellers,
                         chartData.marketplace_mix.listings,
                     ],
-                    backgroundColor: ["#2563eb", "#0f766e", "#f59e0b", "#7c3aed"],
+                    backgroundColor: ["#2563eb", "#f59e0b", "#7c3aed"],
                     borderRadius: 10,
                 }],
             },
@@ -204,37 +175,57 @@
                 responsive: true,
                 plugins: { legend: { display: false } },
                 scales: {
-                    x: { grid: { display: false } },
-                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                    x: { grid: { display: false }, ticks: { color: chartTextColor } },
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0, color: chartTextColor },
+                        grid: { color: chartGridColor },
+                    },
                 },
             },
         });
     }
 
-    const verificationStatusCtx = document.getElementById("verificationStatusChart");
-    if (verificationStatusCtx) {
-        new Chart(verificationStatusCtx, {
-            type: "doughnut",
+    const popularTagsCtx = document.getElementById("popularTagsChart");
+    if (popularTagsCtx && chartData.popular_tags?.labels?.length) {
+        new Chart(popularTagsCtx, {
+            type: "bar",
             data: {
-                labels: ["Pending", "Approved", "Rejected"],
+                labels: chartData.popular_tags.labels,
                 datasets: [{
-                    data: [
-                        chartData.verification_status.pending,
-                        chartData.verification_status.approved,
-                        chartData.verification_status.rejected,
+                    label: "Listings",
+                    data: chartData.popular_tags.counts,
+                    backgroundColor: [
+                        "#12753a",
+                        "#199648",
+                        "#22b455",
+                        "#35c96a",
+                        "#52d985",
+                        "#74e3a0",
+                        "#95ebba",
+                        "#b9f3d3",
+                        "#0e5d2d",
+                        "#15833f",
                     ],
-                    backgroundColor: ["#f59e0b", "#16a34a", "#dc2626"],
-                    borderWidth: 0,
+                    borderRadius: 10,
+                    barThickness: 20,
                 }],
             },
             options: {
                 responsive: true,
-                plugins: {
-                    legend: {
-                        position: "bottom",
+                indexAxis: "y",
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { precision: 0, color: chartTextColor },
+                        grid: { color: chartGridColor },
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: chartTextColor },
                     },
                 },
-                cutout: "68%",
             },
         });
     }

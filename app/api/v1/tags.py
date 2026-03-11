@@ -7,7 +7,9 @@ from app.api.v1.common import create_crud_router
 from app.db.models import Listing, ListingTag, Tag
 from app.db.session import get_db
 
-router = create_crud_router(
+router = APIRouter(prefix="/tags", tags=["tags"])
+
+crud_router = create_crud_router(
     model=Tag,
     prefix="/tags",
     tags=["tags"],
@@ -59,3 +61,6 @@ def popular_tags(
             "items": items,
         }
     )
+
+
+router.include_router(crud_router)

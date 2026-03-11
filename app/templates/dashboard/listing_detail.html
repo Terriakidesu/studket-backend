@@ -1,0 +1,84 @@
+{% extends "dashboard/base.html" %}
+
+{% block dashboard_content %}
+{% set detail = listing_detail %}
+{% set listing = detail.listing %}
+<section class="grid">
+    <article class="panel">
+        <div class="row-actions" style="margin-top:0; margin-bottom:16px;">
+            <a class="button" href="/dashboard/monitoring"><i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i>Back to Monitoring</a>
+            {% if listing.seller_id %}
+            <form method="post" action="/dashboard/messages/start">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="target_user_id" value="{{ listing.seller_id }}">
+                <input type="hidden" name="conversation_type" value="{{ 'looking_for_monitoring_followup' if listing.listing_type == 'looking_for' else 'listing_monitoring_followup' }}">
+                <input type="hidden" name="initial_message" value="{{ 'Management is contacting you regarding your looking-for post.' if listing.listing_type == 'looking_for' else 'Management is contacting you regarding your listing.' }}">
+                <button type="submit"><i class="fa-regular fa-envelope" style="margin-right:6px;"></i>Message {{ "User" if listing.listing_type == "looking_for" else "Seller" }}</button>
+            </form>
+            {% endif %}
+            <form method="post" action="/dashboard/listings/{{ listing.listing_id }}/delete">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="danger"><i class="fa-solid fa-trash" style="margin-right:6px;"></i>Delete</button>
+            </form>
+        </div>
+
+        <h2>
+            <i class="fa-solid {{ 'fa-magnifying-glass' if listing.listing_type == 'looking_for' else 'fa-store' }}" style="margin-right:8px;"></i>
+            {{ listing.title }}
+        </h2>
+        <p class="lead">
+            {{ "Looking-for post under monitoring." if listing.listing_type == "looking_for" else "Marketplace listing under monitoring." }}
+        </p>
+
+        <div class="detail-grid">
+            <div class="detail-card"><strong>ID</strong><br><span class="muted">#{{ listing.listing_id }}</span></div>
+            <div class="detail-card"><strong>Type</strong><br><span class="muted">{{ listing.listing_type or "listing" }}</span></div>
+            <div class="detail-card"><strong>Status</strong><br><span class="muted">{{ listing.status or "unknown" }}</span></div>
+            <div class="detail-card"><strong>Price / Budget</strong><br><span class="muted">{{ listing.price or "-" }}</span></div>
+            <div class="detail-card"><strong>Created</strong><br><span class="muted">{{ listing.created_at or "-" }}</span></div>
+            <div class="detail-card">
+                <strong>{{ "Requester" if listing.listing_type == "looking_for" else "Seller" }}</strong><br>
+                <span class="muted">{{ detail.seller_username or "unknown" }}</span>
+                {% if detail.seller_first_name or detail.seller_last_name %}
+                <div class="muted">{{ (detail.seller_first_name or "") ~ (" " if detail.seller_first_name and detail.seller_last_name else "") ~ (detail.seller_last_name or "") }}</div>
+                {% endif %}
+                {% if detail.seller_campus %}
+                <div class="muted">{{ detail.seller_campus }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="block-spacer">
+            <strong>Description</strong>
+            <div class="detail-card block-spacer">{{ listing.description or "No description provided." }}</div>
+        </div>
+
+        <div class="block-spacer">
+            <strong>Tags</strong>
+            <div class="row-actions block-spacer">
+                {% for tag in detail.tags %}
+                <span class="badge open">{{ tag }}</span>
+                {% else %}
+                <span class="muted">No tags attached.</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="block-spacer">
+            <strong>Media</strong>
+            {% if detail.media %}
+            <div class="grid block-spacer" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+                {% for media in detail.media %}
+                <a href="{{ media.file_path }}" target="_blank" rel="noreferrer" class="detail-card" style="text-decoration:none; color:inherit;">
+                    <img src="{{ media.file_path }}" alt="Listing media" style="width:100%; aspect-ratio: 1 / 1; object-fit:cover; border-radius:14px; margin-bottom:10px;">
+                    <div class="muted">Sort order: {{ media.sort_order or 0 }}</div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="detail-card block-spacer muted">No media uploaded.</div>
+            {% endif %}
+        </div>
+    </article>
+</section>
+{% endblock %}

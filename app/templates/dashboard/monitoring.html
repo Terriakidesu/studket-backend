@@ -1,0 +1,46 @@
+{% extends "dashboard/base.html" %}
+
+{% block dashboard_content %}
+<section class="grid">
+    {% include "dashboard/_monitoring.html" %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    (() => {
+        const tabsRoot = document.querySelector("[data-tabs]");
+        if (!tabsRoot) return;
+
+        const buttons = tabsRoot.querySelectorAll("[data-tab-target]");
+        const panels = document.querySelectorAll("[data-tab-panel]");
+
+        const showTab = (target) => {
+            buttons.forEach((button) => {
+                const active = button.getAttribute("data-tab-target") === target;
+                button.classList.toggle("active", active);
+                button.setAttribute("aria-selected", String(active));
+            });
+
+            panels.forEach((panel) => {
+                panel.hidden = panel.getAttribute("data-tab-panel") !== target;
+            });
+        };
+
+        buttons.forEach((button) => {
+            button.addEventListener("click", () => {
+                const target = button.getAttribute("data-tab-target");
+                showTab(target);
+                window.location.hash = target;
+            });
+        });
+
+        const hashTarget = window.location.hash.replace("#", "");
+        const initialTarget = Array.from(buttons).some((button) => button.getAttribute("data-tab-target") === hashTarget)
+            ? hashTarget
+            : "all-listings";
+        showTab(initialTarget);
+    })();
+</script>
+{% endblock %}
