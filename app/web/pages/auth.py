@@ -184,6 +184,18 @@ def _dispatch_conversation_event(conversation_id: int, payload: dict) -> None:
         pass
 
 
+def _dispatch_chat_event(conversation_id: int, account_ids: list[int], payload: dict) -> None:
+    try:
+        run_async_from_sync(
+            realtime_hub.broadcast_chat_event,
+            conversation_id,
+            account_ids,
+            payload,
+        )
+    except RuntimeError:
+        pass
+
+
 def _dispatch_management_event(payload: dict) -> None:
     try:
         run_async_from_sync(realtime_hub.broadcast_management_event, payload)
@@ -1875,10 +1887,11 @@ def send_dashboard_message(
         "conversation_id": conversation_id,
         "message": message_payload,
     }
-    _dispatch_conversation_event(conversation_id, chat_event)
-    _dispatch_account_event(account["account_id"], chat_event)
+    target_account_ids = [account["account_id"]]
     if recipient is not None:
-        _dispatch_account_event(recipient.account_id, chat_event)
+        target_account_ids.append(recipient.account_id)
+    _dispatch_chat_event(conversation_id, target_account_ids, chat_event)
+    if recipient is not None:
         if notification_payload is not None:
             _emit_user_notification(recipient.account_id, notification_payload)
     return RedirectResponse(
@@ -1957,9 +1970,11 @@ def start_dashboard_message(
             "conversation_id": conversation.conversation_id,
             "message": message_payload,
         }
-        _dispatch_conversation_event(conversation.conversation_id, chat_event)
-        _dispatch_account_event(account["account_id"], chat_event)
-        _dispatch_account_event(target_user_id, chat_event)
+        _dispatch_chat_event(
+            conversation.conversation_id,
+            [account["account_id"], target_user_id],
+            chat_event,
+        )
     if notification_payload is not None:
         _emit_user_notification(target_user_id, notification_payload)
     return RedirectResponse(

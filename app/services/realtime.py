@@ -37,8 +37,13 @@ class RealtimeHub:
     def subscribe_conversation(self, websocket: WebSocket, *, conversation_id: int) -> None:
         self._conversation_connections[conversation_id].add(websocket)
 
-    async def send_account_event(self, account_id: int, payload: dict[str, Any]) -> None:
-        sockets = list(self._account_connections.get(account_id, set()))
+    async def _send_to_sockets(
+        self,
+        sockets: list[WebSocket],
+        payload: dict[str, Any],
+        *,
+        account_ids: set[int] | None = None,
+    ) -> None:
         stale: list[WebSocket] = []
         for socket in sockets:
             try:
@@ -46,29 +51,35 @@ class RealtimeHub:
             except Exception:
                 stale.append(socket)
         for socket in stale:
-            self.disconnect(socket, account_id=account_id)
+            self.disconnect(socket)
+            if account_ids:
+                for account_id in account_ids:
+                    connections = self._account_connections.get(account_id)
+                    if connections and socket in connections:
+                        self.disconnect(socket, account_id=account_id)
+
+    async def send_account_event(self, account_id: int, payload: dict[str, Any]) -> None:
+        sockets = list(self._account_connections.get(account_id, set()))
+        await self._send_to_sockets(sockets, payload, account_ids={account_id})
 
     async def broadcast_conversation(self, conversation_id: int, payload: dict[str, Any]) -> None:
         sockets = list(self._conversation_connections.get(conversation_id, set()))
-        stale: list[WebSocket] = []
-        for socket in sockets:
-            try:
-                await socket.send_json(payload)
-            except Exception:
-                stale.append(socket)
-        for socket in stale:
-            self.disconnect(socket)
+        await self._send_to_sockets(sockets, payload)
+
+    async def broadcast_chat_event(
+        self,
+        conversation_id: int,
+        account_ids: list[int],
+        payload: dict[str, Any],
+    ) -> None:
+        sockets: set[WebSocket] = set(self._conversation_connections.get(conversation_id, set()))
+        for account_id in account_ids:
+            sockets.update(self._account_connections.get(account_id, set()))
+        await self._send_to_sockets(list(sockets), payload, account_ids=set(account_ids))
 
     async def broadcast_management_event(self, payload: dict[str, Any]) -> None:
         sockets = list(self._management_connections)
-        stale: list[WebSocket] = []
-        for socket in sockets:
-            try:
-                await socket.send_json(payload)
-            except Exception:
-                stale.append(socket)
-        for socket in stale:
-            self.disconnect(socket)
+        await self._send_to_sockets(sockets, payload)
 
 
 realtime_hub = RealtimeHub()

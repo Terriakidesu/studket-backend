@@ -1,21 +1,33 @@
 {% extends "dashboard/base.html" %}
 
 {% block dashboard_content %}
-<section class="chat-layout">
+<section
+    class="chat-layout"
+    data-chat-page
+    data-account-id="{{ account.account_id }}"
+    {% if selected_conversation %}
+    data-conversation-id="{{ selected_conversation.conversation_id }}"
+    {% endif %}
+>
     <article class="panel chat-sidebar">
         <h2><i class="fa-regular fa-envelope" style="margin-right:8px;"></i>Conversations</h2>
         <p class="lead">Open any staff-to-user conversation to review the thread and reply from the dashboard.</p>
         <div class="chat-list">
             {% for conversation in conversations %}
-            <a class="chat-card {% if selected_conversation and selected_conversation.conversation_id == conversation.conversation_id %}active{% endif %}" href="/dashboard/messages?conversation_id={{ conversation.conversation_id }}">
+            <a
+                class="chat-card {% if selected_conversation and selected_conversation.conversation_id == conversation.conversation_id %}active{% endif %}"
+                href="/dashboard/messages?conversation_id={{ conversation.conversation_id }}"
+                data-chat-card
+                data-conversation-id="{{ conversation.conversation_id }}"
+            >
                 <div class="chat-header">
                     <div>
                         <strong>#{{ conversation.conversation_id }}</strong><br>
                         <span class="muted">{{ conversation.participant1_username or "unknown" }} and {{ conversation.participant2_username or "unknown" }}</span>
                     </div>
-                    <span class="chat-meta">{{ conversation.last_message_at or conversation.created_at or "-" }}</span>
+                    <span class="chat-meta" data-chat-last-message>{{ conversation.last_message_at or conversation.created_at or "-" }}</span>
                 </div>
-                <div class="chat-meta">
+                <div class="chat-meta" data-chat-count>
                     {{ conversation.message_count }} messages
                     {% if conversation.conversation_type %}
                     · {{ conversation.conversation_type }}
@@ -32,7 +44,7 @@
         {% if selected_conversation %}
         <h2><i class="fa-solid fa-comments" style="margin-right:8px;"></i>Conversation #{{ selected_conversation.conversation_id }}</h2>
         <p class="lead">{{ selected_conversation.participant1_username or "unknown" }} and {{ selected_conversation.participant2_username or "unknown" }}</p>
-        <div class="message-stack">
+        <div class="message-stack" data-message-stack>
             {% for message in conversation_messages %}
             <div class="message-row {% if message.sender_id == account.account_id %}outbound{% endif %}">
                 <article class="message-bubble">
@@ -45,7 +57,7 @@
             <div class="detail-card muted">No messages in this conversation yet.</div>
             {% endfor %}
         </div>
-        <form class="composer" method="post" action="/dashboard/messages/{{ selected_conversation.conversation_id }}/send">
+        <form class="composer" method="post" action="/dashboard/messages/{{ selected_conversation.conversation_id }}/send" data-chat-composer>
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <div>
                 <label class="muted" for="message_text">Reply</label>
@@ -62,4 +74,119 @@
         {% endif %}
     </article>
 </section>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    (() => {
+        const page = document.querySelector("[data-chat-page]");
+        if (!page) return;
+
+        const conversationId = Number(page.dataset.conversationId || 0);
+        const accountId = Number(page.dataset.accountId || 0);
+        const messageStack = page.querySelector("[data-message-stack]");
+        const composer = page.querySelector("[data-chat-composer]");
+        const textarea = composer?.querySelector("textarea[name='message_text']");
+        const cards = Array.from(page.querySelectorAll("[data-chat-card]"));
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        const socket = new WebSocket(`${protocol}://${window.location.host}/ws/management`);
+
+        const escapeHtml = (value) => {
+            const div = document.createElement("div");
+            div.textContent = value ?? "";
+            return div.innerHTML;
+        };
+
+        const scrollMessagesToBottom = () => {
+            if (!messageStack) return;
+            messageStack.scrollTop = messageStack.scrollHeight;
+        };
+
+        const updateConversationCard = (incomingConversationId, sentAt) => {
+            const card = cards.find((item) => Number(item.dataset.conversationId) === incomingConversationId);
+            if (!card) return;
+
+            const countNode = card.querySelector("[data-chat-count]");
+            if (countNode) {
+                const currentCount = Number((countNode.textContent || "").match(/\d+/)?.[0] || 0);
+                const suffix = countNode.textContent.includes("·")
+                    ? ` · ${countNode.textContent.split("·").slice(1).join("·").trim()}`
+                    : "";
+                countNode.textContent = `${currentCount + 1} messages${suffix}`;
+            }
+
+            const lastMessageNode = card.querySelector("[data-chat-last-message]");
+            if (lastMessageNode) {
+                lastMessageNode.textContent = sentAt || "just now";
+            }
+        };
+
+        const appendMessage = (message) => {
+            if (!messageStack || Number(message.conversation_id) !== conversationId) return;
+
+            const emptyState = messageStack.querySelector(".detail-card");
+            if (emptyState) emptyState.remove();
+
+            const row = document.createElement("div");
+            row.className = `message-row${Number(message.sender_id) === accountId ? " outbound" : ""}`;
+            row.innerHTML = `
+                <article class="message-bubble">
+                    <div class="message-author">${escapeHtml(message.sender_username || "unknown sender")}</div>
+                    <div>${escapeHtml(message.message_text || "")}</div>
+                    <div class="message-time">${escapeHtml(message.sent_at || "just now")}</div>
+                </article>
+            `;
+            messageStack.appendChild(row);
+            scrollMessagesToBottom();
+        };
+
+        socket.addEventListener("open", () => {
+            if (conversationId) {
+                socket.send(JSON.stringify({
+                    action: "subscribe_conversation",
+                    conversation_id: conversationId,
+                }));
+            }
+        });
+
+        socket.addEventListener("message", (event) => {
+            let payload;
+            try {
+                payload = JSON.parse(event.data);
+            } catch {
+                return;
+            }
+
+            if (payload.type === "bootstrap" || payload.type === "chat.subscribed") {
+                scrollMessagesToBottom();
+                return;
+            }
+
+            if (payload.type !== "chat.message" || !payload.message) return;
+
+            appendMessage(payload.message);
+            updateConversationCard(Number(payload.conversation_id || 0), payload.message.sent_at);
+        });
+
+        if (composer && textarea) {
+            composer.addEventListener("submit", (event) => {
+                if (socket.readyState !== WebSocket.OPEN || !conversationId) return;
+
+                const messageText = textarea.value.trim();
+                if (!messageText) return;
+
+                event.preventDefault();
+                socket.send(JSON.stringify({
+                    action: "send_message",
+                    conversation_id: conversationId,
+                    message_text: messageText,
+                }));
+                textarea.value = "";
+            });
+        }
+
+        scrollMessagesToBottom();
+    })();
+</script>
 {% endblock %}

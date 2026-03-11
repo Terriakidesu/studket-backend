@@ -143,31 +143,21 @@ async def _broadcast_message_events(
     recipient_account: Account | None,
     notification_payload: dict | None = None,
 ) -> None:
-    await realtime_hub.broadcast_conversation(
-        conversation_id,
-        {
-            "type": "chat.message",
-            "conversation_id": conversation_id,
-            "message": payload,
-        },
-    )
-    await realtime_hub.send_account_event(
-        sender_account_id,
-        {
-            "type": "chat.message",
-            "conversation_id": conversation_id,
-            "message": payload,
-        },
+    chat_event = {
+        "type": "chat.message",
+        "conversation_id": conversation_id,
+        "message": payload,
+    }
+    target_account_ids = [sender_account_id]
+    if recipient_account is not None:
+        target_account_ids.append(recipient_account.account_id)
+
+    await realtime_hub.broadcast_chat_event(
+        conversation_id=conversation_id,
+        account_ids=target_account_ids,
+        payload=chat_event,
     )
     if recipient_account is not None:
-        await realtime_hub.send_account_event(
-            recipient_account.account_id,
-            {
-                "type": "chat.message",
-                "conversation_id": conversation_id,
-                "message": payload,
-            },
-        )
         if notification_payload is not None:
             await realtime_hub.send_account_event(
                 recipient_account.account_id,
