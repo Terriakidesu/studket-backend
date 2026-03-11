@@ -533,6 +533,9 @@
                 <div class="sidebar-group">
                     <p class="sidebar-title">System</p>
                     <nav class="sidebar-nav">
+                        {% if is_superadmin %}
+                        <a class="sidebar-link {% if active_page == 'management_users' %}active{% endif %}" href="/dashboard/management-users" title="Management Users"><i class="fa-solid fa-user-gear"></i><span class="sidebar-text">Management Users</span></a>
+                        {% endif %}
                         <a class="sidebar-link {% if active_page == 'settings' %}active{% endif %}" href="/dashboard/settings" title="Settings"><i class="fa-solid fa-sliders"></i><span class="sidebar-text">Settings</span></a>
                     </nav>
                 </div>

@@ -15,6 +15,7 @@ from app.db.models import (
     Listing,
     ListingReport,
     LookingForReport,
+    ManagementAccount,
     Review,
     SellerReport,
     SellerVerificationRequest,
@@ -332,6 +333,22 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         .limit(20)
         .all()
     )
+    management_users = (
+        db.query(
+            Account.account_id,
+            Account.email,
+            Account.username,
+            Account.account_status,
+            Account.created_at,
+            ManagementAccount.first_name,
+            ManagementAccount.last_name,
+            ManagementAccount.role_name,
+        )
+        .join(ManagementAccount, ManagementAccount.manager_id == Account.account_id)
+        .filter(Account.account_type == "management")
+        .order_by(Account.created_at.desc())
+        .all()
+    )
     verification_chart = {
         "pending": sum(1 for row in verification_requests if row.status == "pending"),
         "approved": sum(1 for row in verification_requests if row.status == "approved"),
@@ -385,6 +402,7 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         "management_timeout_minutes": timeout_minutes,
         "is_superadmin": account.get("account_type") == "superadmin",
         "recent_audit_logs": recent_audit_logs,
+        "management_users": management_users,
         "chart_data": {
             "marketplace_mix": {
                 "users": total_users,
@@ -694,6 +712,26 @@ def dashboard_settings(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("dashboard/settings.html", context)
 
 
+@router.get("/dashboard/management-users", response_class=HTMLResponse)
+def dashboard_management_users(request: Request, db: Session = Depends(get_db)):
+    try:
+        context = _build_dashboard_context(request, db)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    if not context.get("is_superadmin"):
+        return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+
+    context.update(
+        {
+            "active_page": "management_users",
+            "page_title": "Management Users",
+            "page_description": "Review, update, suspend, and reactivate management staff accounts.",
+        }
+    )
+    return templates.TemplateResponse("dashboard/management_users.html", context)
+
+
 @router.get("/dashboard/account", response_class=HTMLResponse)
 def dashboard_account(request: Request, db: Session = Depends(get_db)):
     try:
@@ -966,6 +1004,60 @@ def update_session_timeout(
     )
     db.commit()
     return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/dashboard/management-users/{manager_id}/update")
+def update_management_user(
+    manager_id: int,
+    request: Request,
+    csrf_token: str = Form(...),
+    first_name: str = Form(""),
+    last_name: str = Form(""),
+    role_name: str = Form(""),
+    account_status: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        account = _require_web_session(request)
+        _verify_csrf(request, csrf_token)
+    except AuthServiceError:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    if account.get("account_type") != "superadmin":
+        return RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+
+    management_row = (
+        db.query(Account, ManagementAccount)
+        .join(ManagementAccount, ManagementAccount.manager_id == Account.account_id)
+        .filter(Account.account_id == manager_id, Account.account_type == "management")
+        .first()
+    )
+    if management_row is None:
+        return RedirectResponse(url="/dashboard/management-users", status_code=status.HTTP_303_SEE_OTHER)
+
+    management_account, management_profile = management_row
+    normalized_status = account_status.strip().lower()
+    if normalized_status not in {"active", "suspended"}:
+        normalized_status = management_account.account_status or "active"
+
+    management_account.account_status = normalized_status
+    management_profile.first_name = first_name.strip() or None
+    management_profile.last_name = last_name.strip() or None
+    management_profile.role_name = role_name.strip() or "manager"
+
+    create_audit_log(
+        db,
+        actor_account_id=account["account_id"],
+        actor_username=account["username"],
+        actor_role=account["account_type"],
+        action="update_management_user",
+        target_type="management_account",
+        target_id=str(management_account.account_id),
+        target_label=management_account.username,
+        details=f"Updated management user with status {management_account.account_status} and role {management_profile.role_name}",
+    )
+    db.commit()
+    return RedirectResponse(url="/dashboard/management-users", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/logout")
