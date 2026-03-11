@@ -55,6 +55,7 @@
         padding: 20px 18px;
         display: flex;
         flex-direction: column;
+        overflow-y: auto;
         background:
             linear-gradient(180deg, rgba(16, 32, 58, 0.98), rgba(11, 43, 82, 0.98));
         color: white;
@@ -218,7 +219,20 @@
         line-height: 1;
         flex: 0 0 auto;
     }
-    .sidebar-footer { margin-top: auto; }
+    .sidebar-footer {
+        margin-top: auto;
+        padding-bottom: 2px;
+    }
+    .sidebar-footer form {
+        margin: 0;
+        width: 100%;
+    }
+    .sidebar-footer .sidebar-link {
+        width: 100%;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+    }
     .app-shell.sidebar-collapsed .sidebar-group {
         margin-bottom: 18px;
     }
