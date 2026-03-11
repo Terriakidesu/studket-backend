@@ -17,8 +17,8 @@
         border-radius: 0;
         overflow: hidden;
         background:
-            radial-gradient(circle at top left, rgba(191, 219, 254, 0.38), transparent 28%),
-            linear-gradient(180deg, #eef2ff 0%, #f8fafc 38%, #eef2f7 100%);
+            radial-gradient(circle at top left, rgba(187, 247, 208, 0.38), transparent 28%),
+            linear-gradient(180deg, #eefaf3 0%, #f8fcf9 38%, #edf6f0 100%);
     }
     .main {
         display: flex;
@@ -83,15 +83,15 @@
         transform: none;
         border-color: transparent;
         box-shadow: none;
-        background: rgba(59, 130, 246, 0.08);
+        background: rgba(22, 163, 74, 0.08);
     }
     .chat-card.active {
         border-color: transparent;
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.14), rgba(191, 219, 254, 0.36));
+        background: linear-gradient(135deg, rgba(22, 163, 74, 0.14), rgba(187, 247, 208, 0.36));
     }
     .chat-card.has-new-message:not(.active) {
-        background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(147, 197, 253, 0.30));
-        box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.14);
+        background: linear-gradient(135deg, rgba(22, 163, 74, 0.18), rgba(134, 239, 172, 0.30));
+        box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.14);
     }
     .chat-person {
         display: flex;
@@ -136,8 +136,8 @@
         justify-content: center;
         font-weight: 800;
         text-transform: uppercase;
-        color: #1d4ed8;
-        background: linear-gradient(135deg, #bfdbfe, #dbeafe);
+        color: #15803d;
+        background: linear-gradient(135deg, #bbf7d0, #dcfce7);
         border: 0;
     }
     .chat-thread-head {
@@ -156,7 +156,7 @@
     .chat-thread-head .lead {
         margin: 3px 0 0;
         font-size: .85rem;
-        color: #64748b;
+        color: #6b7f72;
     }
     .message-stack {
         flex: 1 1 auto;
@@ -166,6 +166,7 @@
         flex-direction: column;
         gap: 4px;
         overflow-y: auto;
+        overflow-x: hidden;
         padding: 22px 24px 14px;
     }
     .composer {
@@ -191,7 +192,7 @@
         max-height: 120px;
         border: 0;
         border-radius: 22px;
-        background: #e5e7eb;
+        background: #e2efe7;
         padding: 12px 16px;
         resize: none;
         overflow-y: auto;
@@ -219,20 +220,32 @@
     .message-row.outbound {
         justify-content: flex-end;
     }
-    .message-bubble {
+    .message-item {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
         max-width: min(62%, 560px);
+        min-width: 0;
+    }
+    .message-row.outbound .message-item {
+        align-items: flex-end;
+    }
+    .message-bubble {
         padding: 10px 14px 6px;
         border-radius: 20px;
         background: #ffffff;
         border: 0;
         box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
         line-height: 1.34;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        word-break: break-word;
     }
     .message-row.outbound .message-bubble {
-        background: linear-gradient(180deg, #2381fa 0%, #0b63f6 100%);
+        background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
         color: white;
         border-bottom-right-radius: 8px;
-        box-shadow: 0 10px 20px rgba(37, 99, 235, 0.20);
+        box-shadow: 0 10px 20px rgba(22, 163, 74, 0.20);
     }
     .message-row:not(.outbound) .message-bubble {
         background: #ffffff;
@@ -240,19 +253,19 @@
         border-bottom-left-radius: 8px;
     }
     .message-time {
-        margin-top: 6px;
+        margin-top: 4px;
         font-size: .72rem;
-        color: #94a3b8;
-        text-align: right;
+        color: #41594c;
+        padding: 0 6px;
     }
     .message-row.outbound .message-time {
-        color: rgba(255,255,255,.72);
+        color: #41594c;
     }
     [data-typing-indicator] {
         min-height: 18px;
         padding: 0 12px 0 14px;
         font-size: .82rem;
-        color: #64748b;
+        color: #5f7567;
     }
     .chat-sidebar h2 {
         margin: 0;
@@ -282,6 +295,61 @@
     }
     .chat-person-copy .muted {
         font-size: .82rem;
+    }
+    body[data-theme="dark"] .app-shell {
+        background:
+            radial-gradient(circle at top left, rgba(34, 197, 94, 0.18), transparent 28%),
+            linear-gradient(180deg, #0b120e 0%, #101a14 38%, #111d16 100%);
+    }
+    body[data-theme="dark"] .chat-sidebar {
+        background: rgba(13, 21, 17, 0.96);
+        border-right-color: rgba(67, 86, 76, 0.5);
+    }
+    body[data-theme="dark"] .chat-thread {
+        background:
+            radial-gradient(circle at top, rgba(20, 30, 24, 0.92), rgba(14, 22, 18, 0.96)),
+            linear-gradient(180deg, #0f1813 0%, #111c15 100%);
+    }
+    body[data-theme="dark"] .chat-card,
+    body[data-theme="dark"] .chat-thread-head,
+    body[data-theme="dark"] .composer {
+        background-color: rgba(16, 27, 21, 0.82);
+    }
+    body[data-theme="dark"] .chat-card {
+        color: #e6f4eb;
+    }
+    body[data-theme="dark"] .chat-card:hover {
+        background: rgba(34, 197, 94, 0.12);
+    }
+    body[data-theme="dark"] .chat-card.active {
+        background: linear-gradient(135deg, rgba(21, 128, 61, 0.32), rgba(34, 197, 94, 0.18));
+    }
+    body[data-theme="dark"] .chat-card.has-new-message:not(.active) {
+        background: linear-gradient(135deg, rgba(22, 163, 74, 0.28), rgba(34, 197, 94, 0.18));
+    }
+    body[data-theme="dark"] .chat-thread-head,
+    body[data-theme="dark"] .composer {
+        border-color: rgba(67, 86, 76, 0.5);
+    }
+    body[data-theme="dark"] .chat-thread-head .lead,
+    body[data-theme="dark"] .chat-sidebar .lead,
+    body[data-theme="dark"] .chat-meta,
+    body[data-theme="dark"] [data-typing-indicator],
+    body[data-theme="dark"] .message-time {
+        color: #9ab2a1;
+    }
+    body[data-theme="dark"] .message-bubble,
+    body[data-theme="dark"] .message-row:not(.outbound) .message-bubble {
+        background: #18231c;
+        color: #e6f4eb;
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.24);
+    }
+    body[data-theme="dark"] .chat-composer-field textarea {
+        background: #18231c;
+        color: #e6f4eb;
+    }
+    body[data-theme="dark"] .chat-composer-field textarea::placeholder {
+        color: #87a08f;
     }
     @media (max-width: 720px) {
         .navbar {
@@ -414,10 +482,12 @@
                 data-message-id="{{ message.message_id }}"
                 data-sent-at="{{ (message.sent_at.isoformat() ~ 'Z') if message.sent_at else '' }}"
             >
-                <article class="message-bubble">
-                    <div>{{ message.message_text or "" }}</div>
+                <div class="message-item">
+                    <article class="message-bubble">
+                        <div>{{ message.message_text or "" }}</div>
+                    </article>
                     <div class="message-time" data-message-time>{{ (message.sent_at.isoformat() ~ 'Z') if message.sent_at else "-" }}</div>
-                </article>
+                </div>
             </div>
             {% else %}
             <div class="detail-card muted">No messages in this conversation yet.</div>
@@ -677,10 +747,12 @@
             row.dataset.messageId = String(Number(message.message_id || 0));
             row.dataset.sentAt = message.sent_at || "";
             row.innerHTML = `
-                <article class="message-bubble">
-                    <div>${escapeHtml(message.message_text || "")}</div>
+                <div class="message-item">
+                    <article class="message-bubble">
+                        <div>${escapeHtml(message.message_text || "")}</div>
+                    </article>
                     <div class="message-time" data-message-time>${escapeHtml(formatLocalDateTime(message.sent_at || ""))}</div>
-                </article>
+                </div>
             `;
 
             const incomingOrder = parseMessageOrder(message);

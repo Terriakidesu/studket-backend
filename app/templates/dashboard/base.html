@@ -5,34 +5,102 @@
 {% block head %}
 <style>
     :root {
-        --bg: #eef4ff;
-        --bg-deep: #dbeafe;
-        --sidebar: #10203a;
-        --sidebar-muted: #9db1d0;
-        --sidebar-active: #2563eb;
+        --bg: #eefaf3;
+        --bg-deep: #d7f3e3;
+        --sidebar: #102e23;
+        --sidebar-muted: #9cc9b5;
+        --sidebar-active: #16a34a;
         --panel: #ffffff;
         --panel-soft: rgba(255, 255, 255, 0.78);
-        --ink: #10203a;
-        --muted: #61708a;
-        --line: #d5e1f2;
-        --accent: #2563eb;
-        --accent-strong: #1d4ed8;
+        --ink: #10271d;
+        --muted: #617c6d;
+        --line: #d5e8dc;
+        --accent: #16a34a;
+        --accent-strong: #15803d;
         --success: #166534;
         --danger: #b42318;
         --warning: #b45309;
     }
+    body[data-theme="dark"] {
+        --bg: #0c1711;
+        --bg-deep: #13231a;
+        --sidebar: #08120d;
+        --sidebar-muted: #7fa08b;
+        --sidebar-active: #15803d;
+        --panel: #111b15;
+        --panel-soft: rgba(17, 27, 21, 0.82);
+        --ink: #e6f4eb;
+        --muted: #99b2a2;
+        --line: #22362a;
+        --accent: #22c55e;
+        --accent-strong: #16a34a;
+        --success: #22c55e;
+        --danger: #f87171;
+        --warning: #f59e0b;
+    }
     * { box-sizing: border-box; }
+    body,
+    .sidebar,
+    .sidebar-link,
+    .sidebar-badge,
+    .navbar,
+    .panel,
+    .metric,
+    .detail-card,
+    .profile-chip,
+    .button,
+    button,
+    .input,
+    textarea,
+    th,
+    td,
+    .muted,
+    .profile-copy span {
+        transition:
+            background-color .22s ease,
+            background .22s ease,
+            color .22s ease,
+            border-color .22s ease,
+            box-shadow .22s ease;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        body,
+        .sidebar,
+        .sidebar-link,
+        .sidebar-badge,
+        .navbar,
+        .panel,
+        .metric,
+        .detail-card,
+        .profile-chip,
+        .button,
+        button,
+        .input,
+        textarea,
+        th,
+        td,
+        .muted,
+        .profile-copy span {
+            transition: none;
+        }
+    }
     html, body {
         min-height: 100%;
     }
     body {
         margin: 0;
         background:
-            radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 26rem),
-            radial-gradient(circle at 88% 12%, rgba(29, 78, 216, 0.10), transparent 18rem),
+            radial-gradient(circle at top left, rgba(22, 163, 74, 0.14), transparent 26rem),
+            radial-gradient(circle at 88% 12%, rgba(21, 128, 61, 0.10), transparent 18rem),
             linear-gradient(135deg, #f8fbff, var(--bg));
         color: var(--ink);
         font-family: "Segoe UI", sans-serif;
+    }
+    body[data-theme="dark"] {
+        background:
+            radial-gradient(circle at top left, rgba(34, 197, 94, 0.18), transparent 24rem),
+            radial-gradient(circle at 88% 12%, rgba(21, 128, 61, 0.12), transparent 18rem),
+            linear-gradient(135deg, #0b120e, var(--bg));
     }
     .dashboard-shell {
         width: 100%;
@@ -52,14 +120,14 @@
         left: 0;
         width: 280px;
         height: 100vh;
-        padding: 16px 14px;
+        padding: 12px 12px;
         display: flex;
         flex-direction: column;
         overflow-y: auto;
         background:
-            linear-gradient(180deg, rgba(16, 32, 58, 0.98), rgba(11, 43, 82, 0.98));
+            linear-gradient(180deg, rgba(16, 46, 35, 0.98), rgba(11, 65, 47, 0.98));
         color: white;
-        border-right: 1px solid rgba(147, 197, 253, 0.10);
+        border-right: 1px solid rgba(110, 231, 183, 0.10);
         box-shadow: 0 28px 68px rgba(15, 23, 42, 0.18);
         z-index: 10;
         transition: width .22s ease, padding .22s ease;
@@ -69,25 +137,25 @@
     }
     .app-shell.sidebar-collapsed .sidebar {
         width: 92px;
-        padding: 16px 10px;
+        padding: 12px 8px;
     }
     .sidebar-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 16px;
-        min-height: 42px;
+        gap: 10px;
+        margin-bottom: 10px;
+        min-height: 38px;
     }
     .sidebar-toggle {
-        width: 38px;
-        min-width: 38px;
-        height: 38px;
+        width: 34px;
+        min-width: 34px;
+        height: 34px;
         padding: 0;
         border-radius: 12px;
-        border: 1px solid rgba(147, 197, 253, 0.12);
+        border: 1px solid rgba(110, 231, 183, 0.12);
         background: rgba(255, 255, 255, 0.06);
-        color: #dbeafe;
+        color: #dcfce7;
         box-shadow: none;
     }
     .brand {
@@ -112,7 +180,7 @@
         justify-content: center;
         border-radius: 12px;
         background: rgba(255, 255, 255, 0.10);
-        color: #bfdbfe;
+        color: #bbf7d0;
         box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
     }
     .brand-copy {
@@ -157,40 +225,40 @@
     .app-shell:not(.sidebar-collapsed) .sidebar-toggle {
         margin-left: auto;
     }
-    .sidebar-group { margin-bottom: 16px; }
+    .sidebar-group { margin-bottom: 10px; }
     .sidebar-title {
-        margin: 0 0 8px; font-size: .72rem; text-transform: uppercase;
+        margin: 0 0 5px; font-size: .67rem; text-transform: uppercase;
         letter-spacing: .12em; color: var(--sidebar-muted);
         transition: opacity .16s ease;
     }
-    .sidebar-nav { display: grid; gap: 6px; }
+    .sidebar-nav { display: grid; gap: 4px; }
     .sidebar-link {
         position: relative;
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         width: 100%;
         min-width: 0;
-        padding: 10px 12px;
-        border-radius: 14px;
+        padding: 8px 10px;
+        border-radius: 12px;
         color: #e2e8f0;
         text-decoration: none;
         font-weight: 600;
-        font-size: .95rem;
+        font-size: .9rem;
         background: rgba(255,255,255,0.03);
         border: 1px solid transparent;
         transition: background-color .18s ease, border-color .18s ease, transform .18s ease;
     }
     .sidebar-link:hover, .sidebar-link:focus {
-        background: rgba(37, 99, 235, 0.16);
-        border-color: rgba(147, 197, 253, 0.12);
+        background: rgba(22, 163, 74, 0.16);
+        border-color: rgba(110, 231, 183, 0.12);
         color: white;
         transform: translateY(-1px);
     }
     .sidebar-link.active {
         background: linear-gradient(135deg, var(--sidebar-active), var(--accent-strong));
         color: white;
-        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
+        box-shadow: 0 12px 24px rgba(22, 163, 74, 0.22);
     }
     .sidebar-link i {
         width: 18px;
@@ -209,13 +277,13 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-width: 20px;
-        height: 20px;
-        padding: 0 6px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
         border-radius: 999px;
-        background: rgba(248, 113, 113, 0.16);
-        color: #fecaca;
-        font-size: .72rem;
+        background: rgba(22, 163, 74, 0.18);
+        color: #dcfce7;
+        font-size: .66rem;
         font-weight: 800;
         line-height: 1;
         flex: 0 0 auto;
@@ -235,7 +303,7 @@
         overflow: hidden;
     }
     .app-shell.sidebar-collapsed .sidebar-group {
-        margin-bottom: 14px;
+        margin-bottom: 10px;
     }
     .app-shell.sidebar-collapsed .sidebar-title {
         opacity: 0;
@@ -245,7 +313,7 @@
     }
     .app-shell.sidebar-collapsed .sidebar-link {
         justify-content: center;
-        padding: 10px;
+        padding: 8px;
     }
     .app-shell.sidebar-collapsed .sidebar-link i {
         width: 100%;
@@ -284,6 +352,37 @@
         backdrop-filter: blur(12px);
         box-shadow: 0 18px 40px rgba(15, 23, 42, 0.05);
     }
+    body[data-theme="dark"] .navbar,
+    body[data-theme="dark"] .panel,
+    body[data-theme="dark"] .metric,
+    body[data-theme="dark"] .detail-card,
+    body[data-theme="dark"] .profile-chip,
+    body[data-theme="dark"] .button,
+    body[data-theme="dark"] button,
+    body[data-theme="dark"] .input,
+    body[data-theme="dark"] textarea {
+        background: rgba(17, 27, 21, 0.88);
+        color: var(--ink);
+        border-color: var(--line);
+    }
+    body[data-theme="dark"] .panel,
+    body[data-theme="dark"] .metric {
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+    }
+    body[data-theme="dark"] th,
+    body[data-theme="dark"] td,
+    body[data-theme="dark"] .muted,
+    body[data-theme="dark"] .profile-copy span,
+    body[data-theme="dark"] .navbar p {
+        color: var(--muted);
+    }
+    body[data-theme="dark"] table {
+        color: var(--ink);
+    }
+    body[data-theme="dark"] .button:hover,
+    body[data-theme="dark"] button:hover {
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
+    }
     .navbar h1 {
         margin: 0;
         font-size: clamp(1.5rem, 2.2vw, 1.85rem);
@@ -308,6 +407,12 @@
         padding: 0;
         border-radius: 14px;
     }
+    .theme-toggle {
+        width: 42px;
+        height: 42px;
+        padding: 0;
+        border-radius: 14px;
+    }
     .profile-chip {
         display: inline-flex;
         align-items: center;
@@ -316,7 +421,7 @@
         border-radius: 999px;
         background: #fff;
         border: 1px solid var(--line);
-        box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.03);
+        box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.03);
     }
     .profile-avatar {
         width: 38px;
@@ -327,7 +432,7 @@
         justify-content: center;
         object-fit: cover;
         overflow: hidden;
-        background: linear-gradient(135deg, #bfdbfe, #dbeafe);
+        background: linear-gradient(135deg, #bbf7d0, #dcfce7);
         color: var(--accent);
         font-weight: 800;
         text-transform: uppercase;
@@ -369,7 +474,7 @@
         background: linear-gradient(135deg, var(--accent), var(--accent-strong));
         color: white;
         border-color: transparent;
-        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.20);
+        box-shadow: 0 12px 24px rgba(22, 163, 74, 0.20);
     }
     .grid { display: grid; gap: 18px; }
     .metrics { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
@@ -389,7 +494,7 @@
         width: 92px;
         height: 92px;
         border-radius: 999px;
-        background: radial-gradient(circle, rgba(37, 99, 235, 0.08), transparent 72%);
+        background: radial-gradient(circle, rgba(22, 163, 74, 0.08), transparent 72%);
     }
     .metric small { color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
     .metric strong { display: block; margin-top: 10px; font-size: 2rem; }
@@ -411,7 +516,7 @@
     .badge.pending { background: rgba(180, 83, 9, .12); color: var(--warning); }
     .badge.approved { background: rgba(22, 101, 52, .12); color: var(--success); }
     .badge.rejected { background: rgba(180, 35, 24, .12); color: var(--danger); }
-    .badge.open { background: rgba(37, 99, 235, .12); color: var(--accent-strong); }
+    .badge.open { background: rgba(22, 163, 74, .12); color: var(--accent-strong); }
     .badge.warned { background: rgba(180, 83, 9, .12); color: var(--warning); }
     .badge.banned { background: rgba(180, 35, 24, .12); color: var(--danger); }
     .mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -465,11 +570,11 @@
     }
     .chat-card:hover {
         transform: translateY(-1px);
-        border-color: rgba(37, 99, 235, 0.22);
+        border-color: rgba(22, 163, 74, 0.22);
         box-shadow: 0 12px 24px rgba(16, 32, 58, 0.05);
     }
     .chat-card.active {
-        border-color: rgba(37, 99, 235, 0.34);
+        border-color: rgba(22, 163, 74, 0.34);
         background: linear-gradient(180deg, rgba(219, 234, 254, 0.86), rgba(255,255,255,0.82));
     }
     .chat-header {
@@ -543,14 +648,14 @@
     }
     .tab-button .sidebar-badge {
         margin-left: 4px;
-        background: rgba(37, 99, 235, 0.10);
+        background: rgba(22, 163, 74, 0.10);
         color: var(--accent-strong);
     }
     .tab-button.active {
         background: linear-gradient(135deg, var(--accent), var(--accent-strong));
         color: white;
         border-color: transparent;
-        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.16);
+        box-shadow: 0 12px 24px rgba(22, 163, 74, 0.16);
     }
     .tab-button.active .sidebar-badge {
         background: rgba(255, 255, 255, 0.18);
@@ -643,12 +748,19 @@
             </div>
 
             <div class="sidebar-group">
-                <p class="sidebar-title">Overview</p>
+                <p class="sidebar-title">Operations</p>
                 <nav class="sidebar-nav">
                     <a class="sidebar-link {% if active_page == 'overview' %}active{% endif %}" href="/dashboard" title="Dashboard"><i class="fa-solid fa-gauge-high"></i><span class="sidebar-text">Dashboard</span></a>
+                    <a class="sidebar-link {% if active_page == 'monitoring' %}active{% endif %}" href="/dashboard/monitoring" title="Marketplace Monitoring"><i class="fa-solid fa-binoculars"></i><span class="sidebar-text">Monitoring</span></a>
                     <a class="sidebar-link {% if active_page == 'user_management' %}active{% endif %}" href="/dashboard/users" title="User Management"><i class="fa-solid fa-users-gear"></i><span class="sidebar-text">User Management</span></a>
                     <a class="sidebar-link {% if active_page == 'search' %}active{% endif %}" href="/dashboard/search" title="Search"><i class="fa-solid fa-magnifying-glass"></i><span class="sidebar-text">Search</span></a>
                     <a class="sidebar-link {% if active_page == 'messages' %}active{% endif %}" href="/dashboard/messages" title="Messages" data-sidebar-link="messages"><i class="fa-regular fa-envelope"></i><span class="sidebar-text">Messages</span>{% if conversation_count %}<span class="sidebar-badge" data-sidebar-badge="messages">{{ conversation_count }}</span>{% endif %}</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-group">
+                <p class="sidebar-title">Trust and Safety</p>
+                <nav class="sidebar-nav">
                     <a class="sidebar-link {% if active_page == 'verification' %}active{% endif %}" href="/dashboard/verifications" title="Seller Verification" data-sidebar-link="verification"><i class="fa-solid fa-user-check"></i><span class="sidebar-text">Seller Verification</span>{% if pending_verification_count %}<span class="sidebar-badge" data-sidebar-badge="verification">{{ pending_verification_count }}</span>{% endif %}</a>
                     <a class="sidebar-link {% if active_page == 'moderation' %}active{% endif %}" href="/dashboard/moderation" title="Trust and Safety"><i class="fa-solid fa-gavel"></i><span class="sidebar-text">Trust and Safety</span>{% if pending_moderation_count %}<span class="sidebar-badge">{{ pending_moderation_count }}</span>{% endif %}</a>
                 </nav>
@@ -695,6 +807,9 @@
                     <a href="/dashboard/search" class="button nav-icon" aria-label="Search">
                         <i class="fa-solid fa-magnifying-glass"></i>
                     </a>
+                    <button type="button" class="button theme-toggle" data-theme-toggle aria-label="Toggle dark mode" title="Toggle dark mode">
+                        <i class="fa-regular fa-moon"></i>
+                    </button>
                     <a href="/dashboard/account" class="profile-chip" style="text-decoration:none; color:inherit;">
                         {% if account.profile_photo %}
                         <img class="profile-avatar" src="{{ account.profile_photo }}" alt="Staff profile picture">
@@ -717,6 +832,41 @@
 
 {% block scripts %}
 <script>
+    (() => {
+        const storageKey = "studket-dashboard-theme";
+        const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+        const getPreferredTheme = () => {
+            const stored = window.localStorage.getItem(storageKey);
+            if (stored === "light" || stored === "dark") return stored;
+            return mediaQuery.matches ? "dark" : "light";
+        };
+
+        const applyTheme = (theme) => {
+            document.body.dataset.theme = theme;
+            const toggle = document.querySelector("[data-theme-toggle]");
+            const icon = toggle?.querySelector("i");
+            if (toggle) {
+                toggle.setAttribute("aria-label", theme === "dark" ? "Switch to light mode" : "Switch to dark mode");
+                toggle.setAttribute("title", theme === "dark" ? "Switch to light mode" : "Switch to dark mode");
+            }
+            if (icon) {
+                icon.className = theme === "dark" ? "fa-regular fa-sun" : "fa-regular fa-moon";
+            }
+        };
+
+        applyTheme(getPreferredTheme());
+
+        window.addEventListener("DOMContentLoaded", () => {
+            const toggle = document.querySelector("[data-theme-toggle]");
+            if (!toggle) return;
+            toggle.addEventListener("click", () => {
+                const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark";
+                window.localStorage.setItem(storageKey, nextTheme);
+                applyTheme(nextTheme);
+            });
+        });
+    })();
+
     (() => {
         const appShell = document.querySelector(".app-shell");
         const toggle = document.querySelector("[data-sidebar-toggle]");
