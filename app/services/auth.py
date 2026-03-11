@@ -9,7 +9,13 @@ from app.core.security import (
     validate_password_strength,
     verify_password,
 )
-from app.db.models import Account, AppSetting, ManagementAccount, UserProfile
+from app.db.models import (
+    Account,
+    AppSetting,
+    ManagementAccount,
+    SellerVerificationRequest,
+    UserProfile,
+)
 
 
 ALLOWED_ACCOUNT_TYPES = {"user", "management", "superadmin"}
@@ -39,6 +45,69 @@ def _normalize_account_type(account_type: str) -> str:
     if normalized not in ALLOWED_ACCOUNT_TYPES:
         raise AuthServiceError("Invalid account type")
     return normalized
+
+
+def get_marketplace_role(account: Account, db: Session | None = None) -> str:
+    if account.account_type != "user":
+        return account.account_type
+
+    if db is None:
+        return "buyer"
+
+    profile = (
+        db.query(UserProfile)
+        .filter(UserProfile.user_id == account.account_id)
+        .first()
+    )
+    if profile and profile.is_verified:
+        return "seller"
+    return "buyer"
+
+
+def request_seller_status(
+    db: Session,
+    *,
+    account_id: int,
+    submission_note: str | None = None,
+) -> SellerVerificationRequest:
+    account = (
+        db.query(Account)
+        .filter(Account.account_id == account_id, Account.account_type == "user")
+        .first()
+    )
+    if account is None:
+        raise AuthServiceError("User account not found")
+
+    profile = (
+        db.query(UserProfile)
+        .filter(UserProfile.user_id == account_id)
+        .first()
+    )
+    if profile is None:
+        raise AuthServiceError("User profile not found")
+    if profile.is_verified:
+        raise AuthServiceError("User is already a seller")
+
+    existing_request = (
+        db.query(SellerVerificationRequest)
+        .filter(
+            SellerVerificationRequest.user_id == account_id,
+            SellerVerificationRequest.status == "pending",
+        )
+        .first()
+    )
+    if existing_request is not None:
+        return existing_request
+
+    request = SellerVerificationRequest(
+        user_id=account_id,
+        status="pending",
+        submission_note=(submission_note or "").strip() or None,
+    )
+    db.add(request)
+    db.commit()
+    db.refresh(request)
+    return request
 
 
 def register_account(db: Session, payload: RegistrationData) -> Account:

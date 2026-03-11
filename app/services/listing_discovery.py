@@ -137,6 +137,14 @@ def _base_listing_query(db: Session):
     )
 
 
+def _present_listing_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    owner_id = payload.get("seller_id")
+    payload["owner_id"] = owner_id
+    if payload.get("listing_type") == "looking_for":
+        payload["poster_id"] = owner_id
+    return payload
+
+
 def build_listing_payloads(db: Session, listings: list[Listing]) -> list[dict[str, Any]]:
     listing_ids = [listing.listing_id for listing in listings]
     tags_map = _listing_tags_map(db, listing_ids)
@@ -151,7 +159,7 @@ def build_listing_payloads(db: Session, listings: list[Listing]) -> list[dict[st
         payload["seller_average_rating"] = rating_data.get("average_rating")
         payload["seller_review_count"] = rating_data.get("review_count", 0)
         payload["seller_is_verified"] = bool(listing.seller_id in verified_sellers)
-        payloads.append(payload)
+        payloads.append(_present_listing_payload(payload))
     return payloads
 
 
@@ -270,7 +278,7 @@ def get_recommended_feed(
         rating_data = seller_ratings.get(item["listing"].seller_id or -1, {})
         payload["seller_average_rating"] = rating_data.get("average_rating")
         payload["seller_review_count"] = rating_data.get("review_count", 0)
-        feed_items.append(payload)
+        feed_items.append(_present_listing_payload(payload))
 
     return {
         "user_id": user_id,
@@ -379,7 +387,7 @@ def search_listings(
         payload["seller_is_verified"] = bool(listing.seller_id in verified_sellers)
         payload["seller_average_rating"] = rating_data.get("average_rating")
         payload["seller_review_count"] = rating_data.get("review_count", 0)
-        scored_results.append(payload)
+        scored_results.append(_present_listing_payload(payload))
 
     scored_results.sort(key=lambda item: (item["search_score"], item["created_at"]), reverse=True)
     return {

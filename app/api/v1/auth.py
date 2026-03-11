@@ -7,7 +7,9 @@ from app.services.auth import (
     AuthServiceError,
     RegistrationData,
     authenticate_account,
+    get_marketplace_role,
     register_account,
+    request_seller_status,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -29,6 +31,11 @@ class LoginRequest(BaseModel):
     email_or_username: str
     password: str
     account_type: str | None = None
+
+
+class SellerStatusRequest(BaseModel):
+    account_id: int
+    submission_note: str | None = None
 
 
 def auth_error(status_code: int, message: str) -> HTTPException:
@@ -61,6 +68,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         "email": account.email,
         "username": account.username,
         "account_type": account.account_type,
+        "marketplace_role": get_marketplace_role(account, db),
     }
 
 
@@ -84,5 +92,25 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             "username": account.username,
             "account_type": account.account_type,
             "account_status": account.account_status,
+            "marketplace_role": get_marketplace_role(account, db),
         },
+    }
+
+
+@router.post("/seller-status/request", status_code=status.HTTP_201_CREATED)
+def request_seller_access(payload: SellerStatusRequest, db: Session = Depends(get_db)):
+    try:
+        verification_request = request_seller_status(
+            db,
+            account_id=payload.account_id,
+            submission_note=payload.submission_note,
+        )
+    except AuthServiceError as exc:
+        raise auth_error(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+    return {
+        "message": "Seller access request submitted",
+        "request_id": verification_request.request_id,
+        "account_id": verification_request.user_id,
+        "status": verification_request.status,
     }
