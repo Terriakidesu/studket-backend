@@ -14,6 +14,7 @@ from . import (
     management_accounts,
     messages,
     notifications,
+    profile_pictures,
     reviews,
     seller_reports,
     tags,
@@ -40,6 +41,7 @@ router.include_router(reviews.router)
 router.include_router(transaction_qr.router)
 router.include_router(notifications.router)
 router.include_router(seller_reports.router)
+router.include_router(profile_pictures.router)
 
 # Dashboard/staff-only API routers
 router.include_router(accounts.router, dependencies=[Depends(require_dashboard_api_session)])

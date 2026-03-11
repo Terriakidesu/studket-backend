@@ -53,6 +53,7 @@ These routes are currently mounted without the dashboard-session dependency:
 - `/api/v1/transaction-qr`
 - `/api/v1/notifications`
 - `/api/v1/seller-reports`
+- `/api/v1/profile-pictures`
 
 Important note:
 
@@ -167,6 +168,7 @@ Bootstrap event sent immediately after connect:
   ],
   "summary": {
     "pending_verifications": 3,
+    "unread_messages": 6,
     "open_reports": 8
   }
 }
@@ -183,6 +185,8 @@ Bootstrap fields:
   - recent conversation summary rows
 - `summary.pending_verifications` `integer`
   - count of `seller_verification_request` rows with `status = "pending"`
+- `summary.unread_messages` `integer`
+  - count of unread user-sent messages across staff-user conversations
 - `summary.open_reports` `integer`
   - combined count of open listing, looking-for, and seller reports
 
@@ -190,6 +194,7 @@ Supported client actions:
 
 - `ping`
 - `subscribe_conversation`
+- `mark_conversation_read`
 - `typing_status`
 - `send_message`
 
@@ -284,6 +289,29 @@ Behavior notes:
 - The server broadcasts a `chat.typing` event to the conversation/account sockets for both participants.
 - The server does not persist typing state in the database.
 
+#### Management action: `mark_conversation_read`
+
+Marks unread incoming messages in the open conversation as read for the current staff account.
+
+Client message:
+
+```json
+{
+  "action": "mark_conversation_read",
+  "conversation_id": 15
+}
+```
+
+Success response:
+
+```json
+{
+  "type": "chat.read",
+  "conversation_id": 15,
+  "read_count": 3
+}
+```
+
 ### User Socket
 
 Endpoint:
@@ -363,6 +391,7 @@ Supported client actions:
 
 - `ping`
 - `subscribe_conversation`
+- `mark_conversation_read`
 - `mark_notification_read`
 - `typing_status`
 - `send_message`
@@ -448,6 +477,29 @@ Behavior notes:
 
 - If the notification does not exist or does not belong to the current user socket, the action is ignored.
 
+#### User action: `mark_conversation_read`
+
+Marks unread incoming messages in one conversation as read for the connected user.
+
+Client message:
+
+```json
+{
+  "action": "mark_conversation_read",
+  "conversation_id": 15
+}
+```
+
+Success response:
+
+```json
+{
+  "type": "chat.read",
+  "conversation_id": 15,
+  "read_count": 2
+}
+```
+
 #### User action: `send_message`
 
 Client message:
@@ -493,6 +545,7 @@ The websocket layer currently emits the following event types:
 - `bootstrap`
 - `pong`
 - `chat.subscribed`
+- `chat.read`
 - `chat.typing`
 - `chat.message`
 - `notification.created`
@@ -515,6 +568,20 @@ Payload shape:
   "username": "campusbuyer1",
   "account_type": "user",
   "is_typing": true
+}
+```
+
+#### Event: `chat.read`
+
+Emitted after a socket marks a conversation's unread incoming messages as read.
+
+Payload shape:
+
+```json
+{
+  "type": "chat.read",
+  "conversation_id": 15,
+  "read_count": 2
 }
 ```
 
@@ -567,6 +634,7 @@ Payload shape:
 Typical notification types seen in the codebase:
 
 - `chat_message`
+- `welcome`
 - `seller_verification`
 - `listing_removed`
 - `account_warning`
@@ -616,7 +684,8 @@ Payload shape:
 {
   "type": "management.summary",
   "summary": {
-    "pending_verifications": 2
+    "pending_verifications": 2,
+    "unread_messages": 5
   }
 }
 ```
@@ -1354,6 +1423,7 @@ Exceptions:
 
 - `/api/v1/listings` is a custom router documented earlier.
 - `/api/v1/listing-media` is also a custom router and is documented separately below.
+- `/api/v1/profile-pictures` is also a custom router and is documented separately below.
 
 User-facing CRUD-style routers currently mounted without the dashboard dependency:
 
@@ -1440,6 +1510,7 @@ Fields:
 - `last_name` `string | null`
 - `campus` `string | null`
 - `profile_photo` `string | null`
+- `is_seller` `boolean | null`
 - `is_verified` `boolean | null`
 - `created_at` `datetime | null`
 
@@ -1620,6 +1691,127 @@ Operational note:
 
 - This route depends on FastAPI multipart support at runtime.
 - In practice, `python-multipart` must be installed for the upload endpoint to work.
+
+### Profile Pictures
+
+Base path:
+
+- `/api/v1/profile-pictures`
+
+Access:
+
+- Mixed:
+  - `GET /{account_id}`, `POST /upload`, and `POST /generate` are user-facing
+  - `POST /{account_id}/replace` requires a management or superadmin session
+
+This resource is custom. It manages `UserProfile.profile_photo` and can generate a default PNG avatar automatically.
+
+Response shape:
+
+```json
+{
+  "account_id": 12,
+  "user_id": 12,
+  "profile_photo": "/static/profile-pictures/12/generated-avatar.png",
+  "file_url": "/static/profile-pictures/12/generated-avatar.png",
+  "generated": true
+}
+```
+
+Response fields:
+
+- `account_id` `integer`
+- `user_id` `integer`
+- `profile_photo` `string | null`
+- `file_url` `string | null`
+- `generated` `boolean`
+
+#### GET `/api/v1/profile-pictures/{account_id}`
+
+Returns the user profile picture metadata.
+
+Behavior notes:
+
+- If `profile_photo` is empty or points to a missing file, the API generates a new default PNG avatar automatically.
+- Generated avatars are saved under `app/static/profile-pictures/<account_id>/generated-avatar.png`.
+
+Possible errors:
+
+- `404 {"detail":"User account not found"}`
+- `404 {"detail":"User profile not found"}`
+
+#### POST `/api/v1/profile-pictures/upload`
+
+Uploads a custom user profile picture.
+
+Request type:
+
+- `multipart/form-data`
+
+Form arguments:
+
+- `account_id` `integer`, required
+- `file` `binary`, required
+
+Accepted file extensions:
+
+- `.jpg`
+- `.jpeg`
+- `.png`
+- `.webp`
+- `.gif`
+- `.svg`
+
+Storage behavior:
+
+- Files are written under `app/static/profile-pictures/<account_id>/`
+- File names are randomized with a UUID-based name
+
+Possible errors:
+
+- `400 {"detail":"Unsupported profile picture file type"}`
+- `404 {"detail":"User account not found"}`
+- `404 {"detail":"User profile not found"}`
+
+#### POST `/api/v1/profile-pictures/generate`
+
+Forces regeneration of the default PNG avatar.
+
+Request type:
+
+- `multipart/form-data`
+
+Form arguments:
+
+- `account_id` `integer`, required
+
+Behavior notes:
+
+- If the current profile picture is stored locally under `app/static/profile-pictures/...`, the old file is removed first.
+- The response returns the new generated file path.
+
+#### POST `/api/v1/profile-pictures/{account_id}/replace`
+
+Management moderation endpoint for replacing an inappropriate user profile picture.
+
+Access:
+
+- Management or superadmin session required
+
+Request type:
+
+- `multipart/form-data`
+
+Form arguments:
+
+- `reason` `string`, optional
+  - Defaults to `Inappropriate profile picture`
+
+Behavior notes:
+
+- Removes the existing local profile picture when it is stored under `app/static/profile-pictures/...`
+- Replaces it with a generated default PNG avatar
+- Writes an audit log entry with action `replace_profile_picture`
 
 #### PATCH `/api/v1/listing-media/{item_id}`
 

@@ -2,28 +2,328 @@
 
 {% block dashboard_content %}
 <style>
+    .navbar {
+        display: none;
+    }
+    .dashboard-shell {
+        width: 100%;
+        max-width: none;
+        padding: 0;
+        min-height: 100dvh;
+    }
+    .app-shell {
+        min-height: 100dvh;
+        height: 100dvh;
+        border-radius: 0;
+        overflow: hidden;
+        background:
+            radial-gradient(circle at top left, rgba(191, 219, 254, 0.38), transparent 28%),
+            linear-gradient(180deg, #eef2ff 0%, #f8fafc 38%, #eef2f7 100%);
+    }
+    .main {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        height: 100%;
+        overflow: hidden;
+        padding: 0;
+    }
+    .chat-layout {
+        flex: 1 1 auto;
+        display: grid;
+        grid-template-columns: 360px minmax(0, 1fr);
+        gap: 0;
+        min-height: 0;
+        height: 100%;
+    }
+    .chat-sidebar,
+    .chat-thread {
+        min-height: 0;
+        height: 100%;
+        overflow: hidden;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+    .chat-sidebar {
+        display: flex;
+        flex-direction: column;
+        background: rgba(255, 255, 255, 0.94);
+        border-right: 1px solid rgba(148, 163, 184, 0.20);
+        padding: 18px 14px 14px;
+    }
+    .chat-thread {
+        display: flex;
+        flex-direction: column;
+        background:
+            radial-gradient(circle at top, rgba(255, 255, 255, 0.92), rgba(241, 245, 249, 0.96)),
+            linear-gradient(180deg, #f8fbff 0%, #edf3fb 100%);
+        padding: 0;
+    }
+    .chat-list {
+        flex: 1 1 auto;
+        align-content: start;
+        align-items: start;
+        min-height: 0;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+    .chat-card {
+        width: 100%;
+        align-self: start;
+        padding: 12px 14px;
+        border: 0;
+        border-radius: 16px;
+        background: transparent;
+        color: #0f172a;
+        box-shadow: none;
+        transition: background .16s ease, transform .16s ease;
+    }
+    .chat-card:hover {
+        transform: none;
+        border-color: transparent;
+        box-shadow: none;
+        background: rgba(59, 130, 246, 0.08);
+    }
+    .chat-card.active {
+        border-color: transparent;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.14), rgba(191, 219, 254, 0.36));
+    }
+    .chat-card.has-new-message:not(.active) {
+        background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(147, 197, 253, 0.30));
+        box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.14);
+    }
+    .chat-person {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+    .chat-person-copy {
+        min-width: 0;
+    }
+    .chat-person-copy strong,
+    .chat-person-copy .muted {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .chat-preview {
+        margin-top: 6px;
+        font-size: .88rem;
+        color: var(--muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .chat-person-avatar,
+    .chat-thread-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.82);
+    }
+    .chat-person-avatar-fallback,
+    .chat-thread-avatar-fallback {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: #1d4ed8;
+        background: linear-gradient(135deg, #bfdbfe, #dbeafe);
+        border: 0;
+    }
+    .chat-thread-head {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 18px 24px 14px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+        background: rgba(255, 255, 255, 0.72);
+        backdrop-filter: blur(18px);
+    }
+    .chat-thread-head h2 {
+        margin: 0;
+        font-size: 1.12rem;
+    }
+    .chat-thread-head .lead {
+        margin: 3px 0 0;
+        font-size: .85rem;
+        color: #64748b;
+    }
+    .message-stack {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        overflow-y: auto;
+        padding: 22px 24px 14px;
+    }
+    .composer {
+        flex: 0 0 auto;
+        margin-top: 0;
+        gap: 8px;
+        padding: 12px 18px 18px;
+        border-top: 1px solid rgba(148, 163, 184, 0.16);
+        background: rgba(255, 255, 255, 0.82);
+        backdrop-filter: blur(18px);
+    }
     .chat-composer-row {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
-        gap: 12px;
-        align-items: end;
+        gap: 10px;
+        align-items: center;
     }
     .chat-composer-field {
         min-width: 0;
     }
     .chat-composer-field textarea {
-        min-height: 56px;
+        min-height: 22px;
+        max-height: 120px;
+        border: 0;
+        border-radius: 22px;
+        background: #e5e7eb;
+        padding: 12px 16px;
+        resize: none;
+        overflow-y: auto;
+        box-shadow: none;
     }
     .chat-composer-submit {
-        align-self: end;
+        align-self: center;
         white-space: nowrap;
+        width: 42px;
+        min-width: 42px;
+        height: 42px;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 0;
+        box-shadow: none;
+    }
+    .chat-composer-submit i {
+        margin-right: 0 !important;
+        font-size: 1rem;
+    }
+    .message-row {
+        display: flex;
+        margin-bottom: 2px;
+    }
+    .message-row.outbound {
+        justify-content: flex-end;
+    }
+    .message-bubble {
+        max-width: min(62%, 560px);
+        padding: 10px 14px 6px;
+        border-radius: 20px;
+        background: #ffffff;
+        border: 0;
+        box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
+        line-height: 1.34;
+    }
+    .message-row.outbound .message-bubble {
+        background: linear-gradient(180deg, #2381fa 0%, #0b63f6 100%);
+        color: white;
+        border-bottom-right-radius: 8px;
+        box-shadow: 0 10px 20px rgba(37, 99, 235, 0.20);
+    }
+    .message-row:not(.outbound) .message-bubble {
+        background: #ffffff;
+        color: #0f172a;
+        border-bottom-left-radius: 8px;
+    }
+    .message-time {
+        margin-top: 6px;
+        font-size: .72rem;
+        color: #94a3b8;
+        text-align: right;
+    }
+    .message-row.outbound .message-time {
+        color: rgba(255,255,255,.72);
+    }
+    [data-typing-indicator] {
+        min-height: 18px;
+        padding: 0 12px 0 14px;
+        font-size: .82rem;
+        color: #64748b;
+    }
+    .chat-sidebar h2 {
+        margin: 0;
+        font-size: 1.6rem;
+        letter-spacing: -.04em;
+    }
+    .chat-sidebar .lead {
+        margin: 6px 0 14px;
+        font-size: .9rem;
+        color: #64748b;
+    }
+    .chat-header {
+        align-items: center;
+        margin-bottom: 0;
+    }
+    .chat-meta {
+        font-size: .76rem;
+        color: #64748b;
+    }
+    [data-chat-count] {
+        margin-top: 4px;
+        font-size: .76rem;
+    }
+    .chat-person-copy strong {
+        font-size: .98rem;
+        font-weight: 700;
+    }
+    .chat-person-copy .muted {
+        font-size: .82rem;
     }
     @media (max-width: 720px) {
+        .navbar {
+            display: none;
+        }
+        .app-shell {
+            min-height: auto;
+            height: auto;
+            overflow: visible;
+        }
+        .main {
+            min-height: auto;
+            height: auto;
+            overflow: visible;
+        }
+        .chat-layout {
+            height: auto;
+            grid-template-columns: 1fr;
+        }
+        .chat-sidebar,
+        .chat-thread {
+            overflow: visible;
+        }
+        .chat-list,
+        .message-stack {
+            overflow: visible;
+        }
         .chat-composer-row {
             grid-template-columns: 1fr;
         }
         .chat-composer-submit {
             width: 100%;
+            height: 44px;
+            border-radius: 14px;
+            font-size: inherit;
+            padding: 0 16px;
+        }
+        .chat-composer-submit i {
+            margin-right: 6px !important;
+        }
+        .message-bubble {
+            max-width: 82%;
         }
     }
 </style>
@@ -46,11 +346,25 @@
                 data-chat-card
                 data-conversation-id="{{ conversation.conversation_id }}"
                 data-unread-count="{{ conversation.unread_count or 0 }}"
+                data-chat-last-sort-ts="{% if conversation.last_message_at %}{{ conversation.last_message_at.isoformat() ~ 'Z' }}{% elif conversation.created_at %}{{ conversation.created_at.isoformat() ~ 'Z' }}{% else %}{% endif %}"
             >
+                {% set receiver_username = conversation.participant1_username if conversation.participant1_type == 'user' else conversation.participant2_username %}
+                {% set receiver_photo = conversation.participant1_profile_photo if conversation.participant1_type == 'user' else conversation.participant2_profile_photo %}
                 <div class="chat-header">
-                    <div>
-                        <strong>#{{ conversation.conversation_id }}</strong><br>
-                        <span class="muted">{{ conversation.participant1_username or "unknown" }} and {{ conversation.participant2_username or "unknown" }}</span>
+                    <div class="chat-person">
+                        {% if receiver_photo %}
+                        <img
+                            class="chat-person-avatar"
+                            src="{{ receiver_photo }}"
+                            alt="Receiver profile picture"
+                        >
+                        {% else %}
+                        <span class="chat-person-avatar-fallback">{{ (receiver_username or "U")[:2] }}</span>
+                        {% endif %}
+                        <div class="chat-person-copy">
+                            <strong>{{ receiver_username or "unknown" }}</strong>
+                            <span class="muted">{{ conversation.last_message_text or "No messages yet." }}</span>
+                        </div>
                     </div>
                     <span
                         class="chat-meta"
@@ -75,8 +389,23 @@
 
     <article class="panel chat-thread">
         {% if selected_conversation %}
-        <h2><i class="fa-solid fa-comments" style="margin-right:8px;"></i>Conversation #{{ selected_conversation.conversation_id }}</h2>
-        <p class="lead">{{ selected_conversation.participant1_username or "unknown" }} and {{ selected_conversation.participant2_username or "unknown" }}</p>
+        {% set selected_receiver_username = selected_conversation.participant1_username if selected_conversation.participant1_type == 'user' else selected_conversation.participant2_username %}
+        {% set selected_receiver_photo = selected_conversation.participant1_profile_photo if selected_conversation.participant1_type == 'user' else selected_conversation.participant2_profile_photo %}
+        <div class="chat-thread-head">
+            {% if selected_receiver_photo %}
+            <img
+                class="chat-thread-avatar"
+                src="{{ selected_receiver_photo }}"
+                alt="Receiver profile picture"
+            >
+            {% else %}
+            <span class="chat-thread-avatar-fallback">{{ (selected_receiver_username or "U")[:2] }}</span>
+            {% endif %}
+            <div>
+                <h2>{{ selected_receiver_username or "unknown" }}</h2>
+                <p class="lead">{{ selected_conversation.conversation_type or "conversation" }}</p>
+            </div>
+        </div>
         <div class="message-stack" data-message-stack>
             {% for message in conversation_messages %}
             <div
@@ -86,7 +415,6 @@
                 data-sent-at="{{ (message.sent_at.isoformat() ~ 'Z') if message.sent_at else '' }}"
             >
                 <article class="message-bubble">
-                    <div class="message-author">{{ message.sender_username or "unknown sender" }}</div>
                     <div>{{ message.message_text or "" }}</div>
                     <div class="message-time" data-message-time>{{ (message.sent_at.isoformat() ~ 'Z') if message.sent_at else "-" }}</div>
                 </article>
@@ -183,9 +511,16 @@
             }, 1200);
         };
 
+        const autosizeComposer = () => {
+            if (!textarea) return;
+            textarea.style.height = "0px";
+            textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+        };
+
         const clearConversationUnread = (targetConversationId) => {
             const card = cards.find((item) => Number(item.dataset.conversationId) === Number(targetConversationId));
             if (!card) return;
+            card.classList.remove("has-new-message");
             card.dataset.unreadCount = "0";
             const countNode = card.querySelector("[data-chat-count]");
             if (!countNode) return;
@@ -210,6 +545,23 @@
                 return normalized;
             }
             return `${normalized}Z`;
+        };
+
+        const compareConversationCards = (left, right) => {
+            const leftTs = normalizeSentAt(left.dataset.chatLastSortTs || "");
+            const rightTs = normalizeSentAt(right.dataset.chatLastSortTs || "");
+            if (leftTs !== rightTs) {
+                return rightTs.localeCompare(leftTs);
+            }
+            return Number(right.dataset.conversationId || 0) - Number(left.dataset.conversationId || 0);
+        };
+
+        const reorderConversationCards = () => {
+            const chatList = page.querySelector(".chat-list");
+            if (!chatList) return;
+            cards
+                .sort(compareConversationCards)
+                .forEach((card) => chatList.appendChild(card));
         };
 
         const formatLocalDateTime = (value) => {
@@ -271,7 +623,7 @@
             });
         };
 
-        const updateConversationCard = (incomingConversationId, sentAt) => {
+        const updateConversationCard = (incomingConversationId, sentAt, messageText) => {
             const card = cards.find((item) => Number(item.dataset.conversationId) === incomingConversationId);
             if (!card) return;
 
@@ -281,6 +633,11 @@
                 const currentCount = Number(card.dataset.unreadCount || 0);
                 const nextCount = isUnreadIncoming ? currentCount + 1 : currentCount;
                 card.dataset.unreadCount = String(nextCount);
+                if (isUnreadIncoming) {
+                    card.classList.add("has-new-message");
+                } else {
+                    card.classList.remove("has-new-message");
+                }
                 const suffix = countNode.textContent.includes("·")
                     ? ` · ${countNode.textContent.split("·").slice(1).join("·").trim()}`
                     : "";
@@ -292,6 +649,17 @@
                 lastMessageNode.dataset.chatLastMessageTs = sentAt || "";
                 lastMessageNode.textContent = sentAt ? formatLocalDateTime(sentAt) : "just now";
             }
+
+            if (sentAt) {
+                card.dataset.chatLastSortTs = sentAt;
+            }
+
+            const previewNode = card.querySelector(".chat-person-copy .muted");
+            if (previewNode) {
+                previewNode.textContent = messageText || "New message";
+            }
+
+            reorderConversationCards();
         };
 
         const upsertMessage = (message) => {
@@ -310,7 +678,6 @@
             row.dataset.sentAt = message.sent_at || "";
             row.innerHTML = `
                 <article class="message-bubble">
-                    <div class="message-author">${escapeHtml(message.sender_username || "unknown sender")}</div>
                     <div>${escapeHtml(message.message_text || "")}</div>
                     <div class="message-time" data-message-time>${escapeHtml(formatLocalDateTime(message.sent_at || ""))}</div>
                 </article>
@@ -373,12 +740,25 @@
                 markConversationRead();
             }
             if (Number(payload.message.sender_id || 0) !== accountId) {
-                updateConversationCard(Number(payload.conversation_id || 0), payload.message.sent_at);
+                updateConversationCard(
+                    Number(payload.conversation_id || 0),
+                    payload.message.sent_at,
+                    payload.message.message_text,
+                );
+            } else {
+                updateConversationCard(
+                    Number(payload.conversation_id || 0),
+                    payload.message.sent_at,
+                    payload.message.message_text,
+                );
             }
         });
 
         if (composer && textarea) {
+            autosizeComposer();
+
             textarea.addEventListener("input", () => {
+                autosizeComposer();
                 const hasText = Boolean(textarea.value.trim());
                 if (!hasText) {
                     window.clearTimeout(typingTimeoutId);
@@ -415,6 +795,7 @@
                     message_text: messageText,
                 }));
                 textarea.value = "";
+                autosizeComposer();
             });
         }
 
@@ -424,6 +805,7 @@
         });
 
         reorderMessageRows();
+        reorderConversationCards();
         refreshDisplayedTimes();
         clearConversationUnread(conversationId);
         scrollMessagesToBottomDeferred();

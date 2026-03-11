@@ -365,7 +365,18 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
 
     participant1 = aliased(Account)
     participant2 = aliased(Account)
+    participant1_profile = aliased(UserProfile)
+    participant2_profile = aliased(UserProfile)
     message_sender = aliased(Account)
+    last_message = aliased(Message)
+    last_message_text = (
+        db.query(last_message.message_text)
+        .filter(last_message.conversation_id == Conversation.conversation_id)
+        .order_by(last_message.message_id.desc())
+        .limit(1)
+        .correlate(Conversation)
+        .scalar_subquery()
+    )
     conversations = (
         db.query(
             Conversation.conversation_id,
@@ -375,7 +386,10 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
             participant2.username.label("participant2_username"),
             participant1.account_type.label("participant1_type"),
             participant2.account_type.label("participant2_type"),
+            participant1_profile.profile_photo.label("participant1_profile_photo"),
+            participant2_profile.profile_photo.label("participant2_profile_photo"),
             func.max(Message.sent_at).label("last_message_at"),
+            last_message_text.label("last_message_text"),
             func.count(Message.message_id).label("message_count"),
             func.coalesce(
                 func.sum(
@@ -397,6 +411,8 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
         .outerjoin(message_sender, message_sender.account_id == Message.sender_id)
         .outerjoin(participant1, participant1.account_id == Conversation.participant1_id)
         .outerjoin(participant2, participant2.account_id == Conversation.participant2_id)
+        .outerjoin(participant1_profile, participant1_profile.user_id == Conversation.participant1_id)
+        .outerjoin(participant2_profile, participant2_profile.user_id == Conversation.participant2_id)
         .filter(
             or_(
                 and_(participant1.account_type.in_(WEB_ALLOWED_ACCOUNT_TYPES), participant2.account_type == "user"),
@@ -411,6 +427,8 @@ def _build_dashboard_context(request: Request, db: Session) -> dict:
             participant2.username,
             participant1.account_type,
             participant2.account_type,
+            participant1_profile.profile_photo,
+            participant2_profile.profile_photo,
         )
         .order_by(func.max(Message.sent_at).desc().nullslast(), Conversation.created_at.desc())
         .limit(20)

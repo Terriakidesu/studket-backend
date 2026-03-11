@@ -646,7 +646,7 @@
                     <a class="sidebar-link {% if active_page == 'overview' %}active{% endif %}" href="/dashboard" title="Dashboard"><i class="fa-solid fa-gauge-high"></i><span class="sidebar-text">Dashboard</span></a>
                     <a class="sidebar-link {% if active_page == 'user_management' %}active{% endif %}" href="/dashboard/users" title="User Management"><i class="fa-solid fa-users-gear"></i><span class="sidebar-text">User Management</span></a>
                     <a class="sidebar-link {% if active_page == 'search' %}active{% endif %}" href="/dashboard/search" title="Search"><i class="fa-solid fa-magnifying-glass"></i><span class="sidebar-text">Search</span></a>
-                    <a class="sidebar-link {% if active_page == 'messages' %}active{% endif %}" href="/dashboard/messages" title="Messages"><i class="fa-regular fa-envelope"></i><span class="sidebar-text">Messages</span>{% if conversation_count %}<span class="sidebar-badge">{{ conversation_count }}</span>{% endif %}</a>
+                    <a class="sidebar-link {% if active_page == 'messages' %}active{% endif %}" href="/dashboard/messages" title="Messages" data-sidebar-link="messages"><i class="fa-regular fa-envelope"></i><span class="sidebar-text">Messages</span>{% if conversation_count %}<span class="sidebar-badge" data-sidebar-badge="messages">{{ conversation_count }}</span>{% endif %}</a>
                     <a class="sidebar-link {% if active_page == 'verification' %}active{% endif %}" href="/dashboard/verifications" title="Seller Verification" data-sidebar-link="verification"><i class="fa-solid fa-user-check"></i><span class="sidebar-text">Seller Verification</span>{% if pending_verification_count %}<span class="sidebar-badge" data-sidebar-badge="verification">{{ pending_verification_count }}</span>{% endif %}</a>
                     <a class="sidebar-link {% if active_page == 'moderation' %}active{% endif %}" href="/dashboard/moderation" title="Trust and Safety"><i class="fa-solid fa-gavel"></i><span class="sidebar-text">Trust and Safety</span>{% if pending_moderation_count %}<span class="sidebar-badge">{{ pending_moderation_count }}</span>{% endif %}</a>
                 </nav>
@@ -739,8 +739,9 @@
     })();
 
     (() => {
+        const messageLink = document.querySelector('[data-sidebar-link="messages"]');
         const verificationLink = document.querySelector('[data-sidebar-link="verification"]');
-        if (!verificationLink) return;
+        if (!messageLink && !verificationLink) return;
 
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
         const socket = new WebSocket(`${protocol}://${window.location.host}/ws/management`);
@@ -773,12 +774,18 @@
             }
 
             if (payload.type === "bootstrap") {
+                setSidebarBadgeCount("messages", Number(payload.summary?.unread_messages || 0));
                 setSidebarBadgeCount("verification", Number(payload.summary?.pending_verifications || 0));
                 return;
             }
 
             if (payload.type === "management.summary") {
-                setSidebarBadgeCount("verification", Number(payload.summary?.pending_verifications || 0));
+                if (Object.prototype.hasOwnProperty.call(payload.summary || {}, "unread_messages")) {
+                    setSidebarBadgeCount("messages", Number(payload.summary?.unread_messages || 0));
+                }
+                if (Object.prototype.hasOwnProperty.call(payload.summary || {}, "pending_verifications")) {
+                    setSidebarBadgeCount("verification", Number(payload.summary?.pending_verifications || 0));
+                }
             }
         });
     })();

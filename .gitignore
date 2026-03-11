@@ -47,3 +47,6 @@ htmlcov/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Runtime-uploaded/generated media
+app/static/profile-pictures/*

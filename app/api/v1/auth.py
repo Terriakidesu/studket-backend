@@ -14,6 +14,7 @@ from app.services.auth import (
     register_account,
     request_seller_status,
 )
+from app.services.messaging import create_user_notification
 from app.services.realtime import realtime_hub, run_async_from_sync
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -95,6 +96,19 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         )
     except AuthServiceError as exc:
         raise auth_error(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+    if account.account_type == "user":
+        create_user_notification(
+            db,
+            user_id=account.account_id,
+            notification_type="welcome",
+            title="Welcome to Studket",
+            body="Your account is ready. Complete your profile, explore listings, or start selling when you're ready.",
+            related_entity_type="account",
+            related_entity_id=account.account_id,
+        )
+        db.commit()
+        db.refresh(account)
 
     return {
         "message": "Registered successfully",

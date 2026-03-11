@@ -135,6 +135,52 @@ def _load_user_notifications(db, *, account_id: int) -> list[dict]:
     return [serialize_notification(row) for row in rows]
 
 
+def _management_unread_message_total(db) -> int:
+    participant1 = aliased(Account)
+    participant2 = aliased(Account)
+    sender = aliased(Account)
+    return (
+        db.query(func.count(Message.message_id))
+        .join(Conversation, Conversation.conversation_id == Message.conversation_id)
+        .join(sender, sender.account_id == Message.sender_id)
+        .join(participant1, participant1.account_id == Conversation.participant1_id)
+        .join(participant2, participant2.account_id == Conversation.participant2_id)
+        .filter(
+            Message.is_read.is_(False),
+            sender.account_type == "user",
+            or_(
+                and_(
+                    participant1.account_type.in_(MANAGEMENT_ACCOUNT_TYPES),
+                    participant2.account_type == "user",
+                ),
+                and_(
+                    participant2.account_type.in_(MANAGEMENT_ACCOUNT_TYPES),
+                    participant1.account_type == "user",
+                ),
+            ),
+        )
+        .scalar()
+        or 0
+    )
+
+
+async def _broadcast_management_summary(db) -> None:
+    await realtime_hub.broadcast_management_event(
+        {
+            "type": "management.summary",
+            "summary": {
+                "unread_messages": _management_unread_message_total(db),
+                "pending_verifications": (
+                    db.query(func.count(SellerVerificationRequest.request_id))
+                    .filter(SellerVerificationRequest.status == "pending")
+                    .scalar()
+                    or 0
+                ),
+            },
+        }
+    )
+
+
 def _mark_conversation_messages_read(
     db,
     *,
@@ -156,6 +202,7 @@ def _mark_conversation_messages_read(
 
 
 async def _broadcast_message_events(
+    db,
     *,
     conversation_id: int,
     payload: dict,
@@ -197,6 +244,7 @@ async def _broadcast_message_events(
                     "account_id": recipient_account.account_id,
                 }
             )
+            await _broadcast_management_summary(db)
 
 
 async def _broadcast_typing_event(
@@ -255,6 +303,7 @@ async def management_socket(websocket: WebSocket):
                 "conversations": _load_conversation_summaries(db, account_id=account_id),
                 "summary": {
                     "pending_verifications": pending_verifications,
+                    "unread_messages": _management_unread_message_total(db),
                     "open_reports": open_reports,
                 },
             }
@@ -299,6 +348,7 @@ async def management_socket(websocket: WebSocket):
                 )
                 if read_count:
                     db.commit()
+                    await _broadcast_management_summary(db)
                 await websocket.send_json(
                     {
                         "type": "chat.read",
@@ -340,6 +390,7 @@ async def management_socket(websocket: WebSocket):
                 )
                 payload = serialize_message(message, sender_username=sender.username)
                 await _broadcast_message_events(
+                    db,
                     conversation_id=conversation_id,
                     payload=payload,
                     sender_account_id=account_id,
@@ -453,6 +504,7 @@ async def user_socket(websocket: WebSocket, account_id: int):
                 )
                 if read_count:
                     db.commit()
+                    await _broadcast_management_summary(db)
                 await websocket.send_json(
                     {
                         "type": "chat.read",
@@ -512,6 +564,7 @@ async def user_socket(websocket: WebSocket, account_id: int):
                 )
                 payload = serialize_message(message, sender_username=sender.username)
                 await _broadcast_message_events(
+                    db,
                     conversation_id=conversation_id,
                     payload=payload,
                     sender_account_id=account_id,
