@@ -124,23 +124,31 @@ def create_item(
 def upload_listing_media(
     listing_id: int = Form(...),
     sort_order: int = Form(0),
-    file: UploadFile = File(...),
+    files: list[UploadFile] = File(...),
     db: Session = Depends(get_db),
-) -> dict:
+) -> list[dict]:
     _ensure_listing_exists(listing_id, db)
-    if not file.filename:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="file is required")
+    if not files:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="files are required")
 
-    public_path = _store_uploaded_file(listing_id, file)
-    instance = ListingMedia(
-        listing_id=listing_id,
-        file_path=public_path,
-        sort_order=sort_order,
-    )
-    db.add(instance)
+    created_items: list[ListingMedia] = []
+    for index, file in enumerate(files):
+        if not file.filename:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="each file must have a filename")
+
+        public_path = _store_uploaded_file(listing_id, file)
+        instance = ListingMedia(
+            listing_id=listing_id,
+            file_path=public_path,
+            sort_order=sort_order + index,
+        )
+        db.add(instance)
+        created_items.append(instance)
+
     db.commit()
-    db.refresh(instance)
-    return jsonable_encoder(_serialize_listing_media(instance))
+    for instance in created_items:
+        db.refresh(instance)
+    return jsonable_encoder([_serialize_listing_media(instance) for instance in created_items])
 
 
 @router.patch("/{item_id}")
