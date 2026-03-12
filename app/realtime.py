@@ -360,12 +360,17 @@ async def management_socket(websocket: WebSocket):
             if action == "send_message":
                 conversation_id = int(data.get("conversation_id") or 0)
                 message_text = str(data.get("message_text") or "")
-                message, _, sender, recipient = create_message_record(
-                    db,
-                    conversation_id=conversation_id,
-                    sender_id=account_id,
-                    message_text=message_text,
-                )
+                try:
+                    message, _, sender, recipient = create_message_record(
+                        db,
+                        conversation_id=conversation_id,
+                        sender_id=account_id,
+                        message_text=message_text,
+                    )
+                except ValueError as exc:
+                    db.rollback()
+                    await websocket.send_json({"type": "error", "detail": str(exc)})
+                    continue
                 notification_payload = None
                 if recipient is not None and recipient.account_type == "user":
                     notification = create_user_notification(
@@ -534,12 +539,17 @@ async def user_socket(websocket: WebSocket, account_id: int):
             if action == "send_message":
                 conversation_id = int(data.get("conversation_id") or 0)
                 message_text = str(data.get("message_text") or "")
-                message, _, sender, recipient = create_message_record(
-                    db,
-                    conversation_id=conversation_id,
-                    sender_id=account_id,
-                    message_text=message_text,
-                )
+                try:
+                    message, _, sender, recipient = create_message_record(
+                        db,
+                        conversation_id=conversation_id,
+                        sender_id=account_id,
+                        message_text=message_text,
+                    )
+                except ValueError as exc:
+                    db.rollback()
+                    await websocket.send_json({"type": "error", "detail": str(exc)})
+                    continue
                 notification_payload = None
                 if recipient is not None and recipient.account_type == "user":
                     notification = create_user_notification(
