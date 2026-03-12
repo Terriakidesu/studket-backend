@@ -71,6 +71,7 @@ def create_crud_router(
     tags: list[str],
     pk_field: str,
     enable_create: bool = True,
+    enable_update: bool = True,
 ) -> APIRouter:
     router = APIRouter(prefix=prefix, tags=tags)
 
@@ -106,20 +107,21 @@ def create_crud_router(
             db.refresh(instance)
             return jsonable_encoder(serialize_model(instance))
 
-    @router.patch("/{item_id}")
-    def update_item(
-        item_id: int,
-        payload: dict[str, Any] = Body(...),
-        db: Session = Depends(get_db),
-    ) -> dict[str, Any]:
-        instance = _get_instance(item_id, db)
-        _validate_numeric_payload(model, payload)
-        for field, value in payload.items():
-            if hasattr(instance, field):
-                setattr(instance, field, value)
-        db.commit()
-        db.refresh(instance)
-        return jsonable_encoder(serialize_model(instance))
+    if enable_update:
+        @router.patch("/{item_id}")
+        def update_item(
+            item_id: int,
+            payload: dict[str, Any] = Body(...),
+            db: Session = Depends(get_db),
+        ) -> dict[str, Any]:
+            instance = _get_instance(item_id, db)
+            _validate_numeric_payload(model, payload)
+            for field, value in payload.items():
+                if hasattr(instance, field):
+                    setattr(instance, field, value)
+            db.commit()
+            db.refresh(instance)
+            return jsonable_encoder(serialize_model(instance))
 
     @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
     def delete_item(item_id: int, db: Session = Depends(get_db)) -> Response:

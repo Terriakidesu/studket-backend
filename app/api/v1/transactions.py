@@ -25,8 +25,6 @@ class CreateTransactionPayload(BaseModel):
     seller_id: int
     quantity: int = 1
     agreed_price: Decimal
-    transaction_status: str | None = None
-    completed_at: datetime | None = None
 
 
 def _utcnow() -> datetime:
@@ -179,8 +177,8 @@ def create_transaction(
         seller_id=payload.seller_id,
         quantity=payload.quantity,
         agreed_price=payload.agreed_price,
-        transaction_status=(payload.transaction_status or "pending").strip() or "pending",
-        completed_at=payload.completed_at,
+        transaction_status="pending",
+        completed_at=None,
     )
     db.add(transaction)
     db.commit()
@@ -272,6 +270,7 @@ crud_router = create_crud_router(
     tags=["transactions"],
     pk_field="transaction_id",
     enable_create=False,
+    enable_update=False,
 )
 
 router.include_router(crud_router)
