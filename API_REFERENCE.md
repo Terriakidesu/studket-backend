@@ -1164,7 +1164,6 @@ Inquiry payload fields:
 - `owner_username` `string | null`
 - `inquirer_id` `integer | null`
 - `inquirer_username` `string | null`
-- `offered_price` `number | null`
 - `status` `string`
 - `response_note` `string | null`
 - `responded_by` `integer | null`
@@ -1456,7 +1455,6 @@ Response shape:
       "listing_title": "Linear Algebra Book",
       "owner_id": 44,
       "inquirer_id": 12,
-      "offered_price": 300,
       "status": "pending",
       "last_message": {
         "message_id": 55,
@@ -1541,8 +1539,7 @@ Request body:
 ```json
 {
   "account_id": 12,
-  "message_text": "Is this still available?",
-  "offered_price": 300
+  "message_text": "Is this still available?"
 }
 ```
 
@@ -1550,7 +1547,6 @@ Arguments:
 
 - `account_id` `integer`, required
 - `message_text` `string | null`, optional
-- `offered_price` `number | null`, optional
 
 Behavior notes:
 
@@ -1579,7 +1575,7 @@ Possible errors:
 
 ### POST `/api/v1/listings/{item_id}/inquiries/{inquiry_id}/accept`
 
-Accepts a pending inquiry.
+Marks a pending inquiry as ready for transaction creation.
 
 Access:
 
@@ -1608,7 +1604,10 @@ Behavior notes:
 
 - only the listing owner can accept
 - only inquiries with `status = pending` can be accepted
-- on success, the inquirer receives a `listing_inquiry_accepted` notification
+- on success:
+  - `response_note`, `responded_by`, and `responded_at` are recorded
+  - the inquiry is not moved to `accepted` yet
+  - the `listing_inquiry_accepted` notification is sent only after transaction creation succeeds
 
 Possible errors:
 
@@ -2679,7 +2678,6 @@ Legacy CRUD routes remain available at:
 
 - `GET /api/v1/transactions/`
 - `GET /api/v1/transactions/{item_id}`
-- `PATCH /api/v1/transactions/{item_id}`
 - `DELETE /api/v1/transactions/{item_id}`
 
 #### POST `/api/v1/transactions/`
@@ -2694,9 +2692,7 @@ Request body:
   "buyer_id": 3,
   "seller_id": 2,
   "quantity": 1,
-  "agreed_price": 250.0,
-  "transaction_status": "pending",
-  "completed_at": null
+  "agreed_price": 250.0
 }
 ```
 
@@ -2708,9 +2704,6 @@ Arguments:
 - `quantity` `integer`, optional
   - Defaults to `1`
 - `agreed_price` `number`, required
-- `transaction_status` `string | null`, optional
-  - Defaults to `"pending"` when omitted or blank
-- `completed_at` `datetime | null`, optional
 
 Behavior notes:
 
@@ -2718,13 +2711,16 @@ Behavior notes:
 - `listing_id` must reference an existing listing
 - `agreed_price` must be greater than `0`
 - numeric values are validated before insert; oversized values are rejected with `400` instead of bubbling up as a database error
+- new transactions are always created with:
+  - `transaction_status = "pending"`
+  - `completed_at = null`
 - for normal listings:
   - `seller_id` must match the listing owner
   - `buyer_id` and `seller_id` must be different
 - for `looking_for` listings:
   - `buyer_id` must be the listing owner
   - `seller_id` must be the user fulfilling the request
-  - if an accepted inquiry exists for that pair and it has `offered_price`, `agreed_price` must match the accepted offer
+  - an accepted inquiry is required before the transaction can be created
   - `agreed_price` values that look like concatenated `budget_min + budget_max` values are rejected
 
 Response shape:
@@ -2753,8 +2749,8 @@ Possible errors:
 - `400 {"detail":{"error":"buyer_id and seller_id must be different"}}`
 - `400 {"detail":{"error":"For looking-for listings, buyer_id must be the listing owner"}}`
 - `400 {"detail":{"error":"For looking-for listings, seller_id must be the user fulfilling the request"}}`
+- `400 {"detail":{"error":"An accepted inquiry is required before creating a transaction for this looking-for listing"}}`
 - `400 {"detail":{"error":"agreed_price looks like a concatenated budget range, not a real price"}}`
-- `400 {"detail":{"error":"agreed_price must match the accepted inquiry offer for this looking-for listing"}}`
 
 #### POST `/api/v1/transactions/{item_id}/cancel`
 
