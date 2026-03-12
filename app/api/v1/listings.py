@@ -21,7 +21,6 @@ router = APIRouter(prefix="/listings", tags=["listings"])
 class ListingInquiryPayload(BaseModel):
     account_id: int
     message_text: str | None = None
-    offered_price: Decimal | None = None
 
 
 class InquiryDecisionPayload(BaseModel):
@@ -379,7 +378,6 @@ def _serialize_inquiry(
         "owner_username": usernames.get(inquiry.owner_id),
         "inquirer_id": inquiry.inquirer_id,
         "inquirer_username": usernames.get(inquiry.inquirer_id),
-        "offered_price": float(inquiry.offered_price) if inquiry.offered_price is not None else None,
         "status": inquiry.status,
         "response_note": inquiry.response_note,
         "responded_by": inquiry.responded_by,
@@ -696,7 +694,6 @@ def open_item_inquiry(
         conversation_id=conversation.conversation_id,
         inquirer_id=payload.account_id,
         owner_id=listing.seller_id,
-        offered_price=payload.offered_price,
         status="pending",
     )
     db.add(inquiry)
@@ -764,26 +761,14 @@ def accept_item_inquiry(
             detail="Only pending inquiries can be accepted",
         )
 
-    inquiry.status = "accepted"
     inquiry.response_note = (payload.response_note or "").strip() or None
     inquiry.responded_by = payload.account_id
     inquiry.responded_at = datetime.now(timezone.utc).replace(tzinfo=None)
-    db.add(
-        Notification(
-            user_id=inquiry.inquirer_id,
-            notification_type="listing_inquiry_accepted",
-            title="Inquiry accepted",
-            body=f"Your inquiry for {listing.title} was accepted.",
-            related_entity_type="conversation",
-            related_entity_id=inquiry.conversation_id,
-            is_read=False,
-        )
-    )
     db.commit()
     db.refresh(inquiry)
     return jsonable_encoder(
         {
-            "message": "Inquiry accepted",
+            "message": "Inquiry marked ready for transaction",
             "inquiry": _serialize_inquiry(
                 inquiry,
                 listing=listing,

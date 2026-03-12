@@ -123,23 +123,6 @@ def _ensure_transaction_price_is_valid(
             except ArithmeticError:
                 pass
 
-        accepted_inquiry = (
-            db.query(ListingInquiry)
-            .filter(
-                ListingInquiry.listing_id == listing.listing_id,
-                ListingInquiry.owner_id == buyer_id,
-                ListingInquiry.inquirer_id == seller_id,
-                ListingInquiry.status == "accepted",
-            )
-            .order_by(ListingInquiry.responded_at.desc(), ListingInquiry.inquiry_id.desc())
-            .first()
-        )
-        if accepted_inquiry is not None and accepted_inquiry.offered_price is not None:
-            if agreed_price != accepted_inquiry.offered_price:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={"error": "agreed_price must match the accepted inquiry offer for this looking-for listing"},
-                )
         return
 
     if listing.seller_id != seller_id:
@@ -154,6 +137,84 @@ def _ensure_transaction_price_is_valid(
         )
 
 
+def _get_related_inquiry(
+    *,
+    listing: Listing,
+    buyer_id: int,
+    seller_id: int,
+    db: Session,
+) -> ListingInquiry | None:
+    if listing.listing_type == "looking_for":
+        owner_id = buyer_id
+        inquirer_id = seller_id
+    else:
+        owner_id = seller_id
+        inquirer_id = buyer_id
+
+    return (
+        db.query(ListingInquiry)
+        .filter(
+            ListingInquiry.listing_id == listing.listing_id,
+            ListingInquiry.owner_id == owner_id,
+            ListingInquiry.inquirer_id == inquirer_id,
+        )
+        .order_by(ListingInquiry.responded_at.desc(), ListingInquiry.inquiry_id.desc())
+        .first()
+    )
+
+
+def _ensure_inquiry_ready_for_transaction(
+    *,
+    listing: Listing,
+    inquiry: ListingInquiry | None,
+) -> None:
+    if inquiry is None:
+        if listing.listing_type == "looking_for":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "A matching inquiry is required before creating a transaction for this looking-for listing"},
+            )
+        return
+
+    if inquiry.status == "rejected":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "Rejected inquiries cannot create transactions"},
+        )
+
+    if inquiry.status == "accepted":
+        return
+
+    if inquiry.responded_by is None or inquiry.responded_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "Inquiry must be accepted before creating a transaction"},
+        )
+
+
+def _finalize_inquiry_acceptance(
+    *,
+    inquiry: ListingInquiry | None,
+    listing: Listing,
+    db: Session,
+) -> None:
+    if inquiry is None or inquiry.status == "accepted":
+        return
+
+    inquiry.status = "accepted"
+    db.add(
+        Notification(
+            user_id=inquiry.inquirer_id,
+            notification_type="listing_inquiry_accepted",
+            title="Inquiry accepted",
+            body=f"Your inquiry for {listing.title} was accepted.",
+            related_entity_type="conversation",
+            related_entity_id=inquiry.conversation_id,
+            is_read=False,
+        )
+    )
+
+
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_transaction(
     payload: CreateTransactionPayload = Body(...),
@@ -162,6 +223,12 @@ def create_transaction(
     _get_user_account_or_404(payload.buyer_id, db)
     _get_user_account_or_404(payload.seller_id, db)
     listing = _get_listing_or_404(payload.listing_id, db)
+    inquiry = _get_related_inquiry(
+        listing=listing,
+        buyer_id=payload.buyer_id,
+        seller_id=payload.seller_id,
+        db=db,
+    )
 
     _ensure_transaction_price_is_valid(
         listing=listing,
@@ -170,6 +237,7 @@ def create_transaction(
         seller_id=payload.seller_id,
         db=db,
     )
+    _ensure_inquiry_ready_for_transaction(listing=listing, inquiry=inquiry)
 
     transaction = Transaction(
         listing_id=payload.listing_id,
@@ -181,6 +249,7 @@ def create_transaction(
         completed_at=None,
     )
     db.add(transaction)
+    _finalize_inquiry_acceptance(inquiry=inquiry, listing=listing, db=db)
     db.commit()
     db.refresh(transaction)
     return jsonable_encoder(_serialize_transaction(transaction))
