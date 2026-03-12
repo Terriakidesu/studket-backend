@@ -2672,16 +2672,89 @@ Access:
 
 - User-facing route
 
-This resource now has a custom cancellation workflow endpoint.
-The legacy CRUD endpoints still exist for compatibility.
+This resource now has custom creation and cancellation workflow endpoints.
+The remaining CRUD endpoints still exist for compatibility.
 
 Legacy CRUD routes remain available at:
 
 - `GET /api/v1/transactions/`
 - `GET /api/v1/transactions/{item_id}`
-- `POST /api/v1/transactions/`
 - `PATCH /api/v1/transactions/{item_id}`
 - `DELETE /api/v1/transactions/{item_id}`
+
+#### POST `/api/v1/transactions/`
+
+Creates a transaction with listing-aware validation.
+
+Request body:
+
+```json
+{
+  "listing_id": 19,
+  "buyer_id": 3,
+  "seller_id": 2,
+  "quantity": 1,
+  "agreed_price": 250.0,
+  "transaction_status": "pending",
+  "completed_at": null
+}
+```
+
+Arguments:
+
+- `listing_id` `integer`, required
+- `buyer_id` `integer`, required
+- `seller_id` `integer`, required
+- `quantity` `integer`, optional
+  - Defaults to `1`
+- `agreed_price` `number`, required
+- `transaction_status` `string | null`, optional
+  - Defaults to `"pending"` when omitted or blank
+- `completed_at` `datetime | null`, optional
+
+Behavior notes:
+
+- `buyer_id` and `seller_id` must both belong to normal `user` accounts with `UserProfile` rows
+- `listing_id` must reference an existing listing
+- `agreed_price` must be greater than `0`
+- numeric values are validated before insert; oversized values are rejected with `400` instead of bubbling up as a database error
+- for normal listings:
+  - `seller_id` must match the listing owner
+  - `buyer_id` and `seller_id` must be different
+- for `looking_for` listings:
+  - `buyer_id` must be the listing owner
+  - `seller_id` must be the user fulfilling the request
+  - if an accepted inquiry exists for that pair and it has `offered_price`, `agreed_price` must match the accepted offer
+  - `agreed_price` values that look like concatenated `budget_min + budget_max` values are rejected
+
+Response shape:
+
+```json
+{
+  "transaction_id": 14,
+  "listing_id": 19,
+  "buyer_id": 3,
+  "seller_id": 2,
+  "quantity": 1,
+  "agreed_price": 250,
+  "transaction_status": "pending",
+  "completed_at": null
+}
+```
+
+Possible errors:
+
+- `404 {"detail":{"error":"User account not found"}}`
+- `404 {"detail":{"error":"User profile not found"}}`
+- `404 {"detail":{"error":"Listing not found"}}`
+- `400 {"detail":{"error":"agreed_price must be greater than 0"}}`
+- `400 {"detail":"agreed_price is too large. Maximum absolute value is less than 100000000."}`
+- `400 {"detail":{"error":"seller_id must match the listing owner"}}`
+- `400 {"detail":{"error":"buyer_id and seller_id must be different"}}`
+- `400 {"detail":{"error":"For looking-for listings, buyer_id must be the listing owner"}}`
+- `400 {"detail":{"error":"For looking-for listings, seller_id must be the user fulfilling the request"}}`
+- `400 {"detail":{"error":"agreed_price looks like a concatenated budget range, not a real price"}}`
+- `400 {"detail":{"error":"agreed_price must match the accepted inquiry offer for this looking-for listing"}}`
 
 #### POST `/api/v1/transactions/{item_id}/cancel`
 
@@ -2745,7 +2818,7 @@ Possible errors:
 - `400 {"detail":{"error":"Completed transactions cannot be cancelled"}}`
 - `400 {"detail":{"error":"Transaction is already cancelled"}}`
 
-#### Legacy transaction CRUD fields
+#### Transaction fields
 
 Primary key:
 
