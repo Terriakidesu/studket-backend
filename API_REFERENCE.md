@@ -1330,6 +1330,19 @@ Possible errors:
 
 - `404 {"detail":"User account not found"}`
 
+### GET `/api/v1/listings/users/{account_id}/listings`
+
+Alias of the user listings endpoint. Returns the same payload as `/api/v1/listings/users/{account_id}`.
+
+Access:
+
+- User-facing route
+
+Path arguments:
+
+- `account_id` `integer`, required
+  - Must point to an existing `user` account
+
 ### GET `/api/v1/listings/users/{account_id}/looking-for`
 
 Lists only the `looking_for` posts created by one user account.
@@ -2814,6 +2827,97 @@ Possible errors:
 - `400 {"detail":{"error":"Completed transactions cannot be cancelled"}}`
 - `400 {"detail":{"error":"Transaction is already cancelled"}}`
 
+#### GET `/api/v1/transactions/users/{account_id}`
+
+Returns all transactions where the account is the buyer or seller, with lightweight listing context.
+
+Path arguments:
+
+- `account_id` `integer`, required
+
+Response shape:
+
+```json
+{
+  "account_id": 12,
+  "count": 2,
+  "items": [
+    {
+      "transaction_id": 14,
+      "listing_id": 19,
+      "buyer_id": 3,
+      "seller_id": 12,
+      "quantity": 1,
+      "agreed_price": 250,
+      "transaction_status": "pending",
+      "completed_at": null,
+      "role": "seller",
+      "listing_type": "stock_item",
+      "listing_title": "HP 10b Calculator",
+      "is_looking_for": false
+    }
+  ]
+}
+```
+
+Behavior notes:
+
+- `role` indicates whether the account is the buyer or seller for that item.
+- `listing_type` and `listing_title` are pulled from the related listing.
+- `is_looking_for` is `true` when `listing_type == "looking_for"`.
+
+Possible errors:
+
+- `404 {"detail":{"error":"User account not found"}}`
+- `404 {"detail":{"error":"User profile not found"}}`
+
+#### GET `/api/v1/transactions/users/{account_id}/{transaction_id}`
+
+Returns a flattened, SQL-style join of a transaction and its related rows.
+
+Path arguments:
+
+- `account_id` `integer`, required
+- `transaction_id` `integer`, required
+
+Behavior notes:
+
+- Access is restricted to the buyer or seller on the transaction.
+- The response is a single flat object with labeled columns (see below).
+- The `transaction_qr_*` fields describe the latest QR row for the transaction.
+
+Response shape (partial):
+
+```json
+{
+  "transaction_id": 14,
+  "transaction_listing_id": 19,
+  "transaction_buyer_id": 3,
+  "transaction_seller_id": 12,
+  "transaction_quantity": 1,
+  "transaction_agreed_price": 250,
+  "transaction_status": "pending",
+  "transaction_completed_at": null,
+  "listing_id": 19,
+  "listing_title": "HP 10b Calculator",
+  "listing_type": "stock_item",
+  "buyer_account_id": 3,
+  "buyer_username": "campusbuyer1",
+  "seller_account_id": 12,
+  "seller_username": "campusseller2",
+  "transaction_qr_id": 8,
+  "transaction_qr_token": "generated-token",
+  "role": "seller"
+}
+```
+
+Possible errors:
+
+- `404 {"detail":{"error":"Transaction not found"}}`
+- `404 {"detail":{"error":"User account not found"}}`
+- `404 {"detail":{"error":"User profile not found"}}`
+- `403 {"detail":{"error":"You do not have access to this transaction"}}`
+
 #### Transaction fields
 
 Primary key:
@@ -2836,6 +2940,176 @@ Fields:
 Base path:
 
 - `/api/v1/reviews`
+
+Access:
+
+- User-facing route
+
+This resource supports custom review creation with validation. Deletion is disabled.
+
+#### POST `/api/v1/reviews/users/{seller_id}/direct`
+
+Creates a seller review without specifying a transaction, as long as the reviewer has prior completed history with that seller.
+
+Path arguments:
+
+- `seller_id` `integer`, required
+
+Request body:
+
+```json
+{
+  "reviewer_id": 3,
+  "rating": 5,
+  "comment": "Great seller"
+}
+```
+
+Behavior notes:
+
+- `transaction_id` must be omitted.
+- Reviewer must have at least one `completed` transaction with the seller.
+- The review is recorded against the most recent completed transaction.
+- Only one review is allowed per transaction.
+
+Possible errors:
+
+- `404 {"detail":{"error":"User account not found"}}`
+- `404 {"detail":{"error":"User profile not found"}}`
+- `400 {"detail":{"error":"transaction_id is not allowed for direct seller reviews"}}`
+- `400 {"detail":{"error":"Reviewer must have a completed transaction with this seller"}}`
+- `400 {"detail":{"error":"A review already exists for the latest completed transaction"}}`
+- `400 {"detail":{"error":"rating must be between 1 and 5"}}`
+
+#### POST `/api/v1/reviews/users/{seller_id}`
+
+Creates a review for a specific seller. This is a convenience endpoint that enforces seller-only reviews.
+
+Path arguments:
+
+- `seller_id` `integer`, required
+
+Request body:
+
+```json
+{
+  "transaction_id": 14,
+  "reviewer_id": 3,
+  "rating": 5,
+  "comment": "Great seller"
+}
+```
+
+Behavior notes:
+
+- The transaction must belong to the seller in the path.
+- Only the buyer on the transaction can review the seller.
+- Only `completed` transactions can be reviewed.
+- Only one review is allowed per transaction.
+
+Possible errors:
+
+- `404 {"detail":{"error":"User account not found"}}`
+- `404 {"detail":{"error":"User profile not found"}}`
+- `404 {"detail":{"error":"Transaction not found"}}`
+- `400 {"detail":{"error":"Transaction does not belong to this seller"}}`
+- `403 {"detail":{"error":"Only the buyer can review the seller"}}`
+- `400 {"detail":{"error":"Only completed transactions can be reviewed"}}`
+- `400 {"detail":{"error":"A review already exists for this transaction"}}`
+- `400 {"detail":{"error":"rating must be between 1 and 5"}}`
+
+#### POST `/api/v1/reviews/`
+
+Creates a review for a completed transaction.
+
+Request body:
+
+```json
+{
+  "transaction_id": 14,
+  "reviewer_id": 3,
+  "rating": 5,
+  "comment": "Smooth transaction"
+}
+```
+
+Arguments:
+
+- `transaction_id` `integer`, required
+- `reviewer_id` `integer`, required
+- `rating` `integer`, required
+  - Must be between `1` and `5`
+- `comment` `string | null`, optional
+
+Behavior notes:
+
+- The reviewer must be the buyer or seller on the transaction.
+- Only `completed` transactions can be reviewed.
+- Only one review is allowed per transaction.
+- The API auto-derives `reviewee_id` as the other participant.
+- Buyers cannot be reviewed (only sellers receive reviews).
+
+Possible errors:
+
+- `404 {"detail":{"error":"User account not found"}}`
+- `404 {"detail":{"error":"User profile not found"}}`
+- `404 {"detail":{"error":"Transaction not found"}}`
+- `403 {"detail":{"error":"Only transaction participants can leave a review"}}`
+- `400 {"detail":{"error":"Only completed transactions can be reviewed"}}`
+- `400 {"detail":{"error":"A review already exists for this transaction"}}`
+- `400 {"detail":{"error":"Reviewee could not be determined"}}`
+- `400 {"detail":{"error":"Buyers cannot be reviewed"}}`
+- `400 {"detail":{"error":"rating must be between 1 and 5"}}`
+
+#### GET `/api/v1/reviews/transactions/{transaction_id}`
+
+Returns reviews for a transaction (stock items only).
+
+Behavior notes:
+
+- Transactions tied to `looking_for` listings are rejected.
+
+Possible errors:
+
+- `404 {"detail":{"error":"Transaction not found"}}`
+- `404 {"detail":{"error":"Listing not found"}}`
+- `400 {"detail":{"error":"Reviews for looking-for transactions are not supported"}}`
+
+#### GET `/api/v1/reviews/users/{account_id}`
+
+Returns reviews where the user is the reviewee.
+
+Possible errors:
+
+- `404 {"detail":{"error":"User account not found"}}`
+- `404 {"detail":{"error":"User profile not found"}}`
+
+#### PATCH `/api/v1/reviews/{review_id}`
+
+Updates a review. Only the reviewer can update their review.
+
+Query arguments:
+
+- `account_id` `integer`, required
+
+Behavior notes:
+
+- Immutable fields (`review_id`, `transaction_id`, `reviewer_id`, `reviewee_id`, `created_at`) are ignored if provided.
+
+Possible errors:
+
+- `404 {"detail":{"error":"Review not found"}}`
+- `404 {"detail":{"error":"User account not found"}}`
+- `404 {"detail":{"error":"User profile not found"}}`
+- `403 {"detail":{"error":"Only the review author can update this review"}}`
+
+#### DELETE `/api/v1/reviews/{review_id}`
+
+Deletion is not allowed.
+
+Possible errors:
+
+- `405 {"detail":{"error":"Review deletion is not allowed"}}`
 
 Primary key:
 
