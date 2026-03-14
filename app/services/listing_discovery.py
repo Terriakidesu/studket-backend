@@ -382,7 +382,12 @@ def search_listings(
             .filter(func.lower(Tag.tag_name) == normalized_tag)
         )
 
-    rows = query.distinct(Listing.listing_id).order_by(Listing.created_at.desc()).limit(limit * 3).all()
+    rows = (
+        query.distinct(Listing.listing_id)
+        .order_by(Listing.listing_id.asc(), Listing.created_at.desc())
+        .limit(limit * 3)
+        .all()
+    )
     listings = [row[0] for row in rows]
     listing_ids = [listing.listing_id for listing in listings]
     tags_map = _listing_tags_map(db, listing_ids)
