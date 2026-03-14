@@ -2482,6 +2482,41 @@ Base path:
 
 - `/api/v1/tags`
 
+#### GET `/api/v1/tags/list`
+
+Returns tags ordered by popularity (descending listing usage).
+
+Query arguments:
+
+- `limit` `integer`, optional, default `100`
+  - Minimum `1`
+  - Maximum `1000`
+- `include_unavailable` `boolean`, optional, default `false`
+  - When `false`, only tags attached to `available` listings are counted
+  - When `true`, all listings are counted regardless of listing status
+
+Response shape:
+
+```json
+{
+  "count": 2,
+  "limit": 100,
+  "include_unavailable": false,
+  "items": [
+    {
+      "tag_id": 1,
+      "tag_name": "books",
+      "listing_count": 12
+    },
+    {
+      "tag_id": 7,
+      "tag_name": "calculator",
+      "listing_count": 8
+    }
+  ]
+}
+```
+
 #### GET `/api/v1/tags/popular`
 
 Returns the most-used tags ranked by how many listings use them.
@@ -2573,6 +2608,35 @@ Base path:
 
 - `/api/v1/listing-reports`
 
+User reporting is supported via a custom POST route.
+
+#### POST `/api/v1/listing-reports/`
+
+Creates a report for a normal listing (non-`looking_for`).
+
+Request body:
+
+```json
+{
+  "listing_id": 19,
+  "reporter_id": 12,
+  "reason": "Misleading description",
+  "details": "Item condition does not match photos"
+}
+```
+
+Behavior notes:
+
+- The listing must not be a `looking_for` post.
+- Reports are created with `status = "open"`.
+
+Possible errors:
+
+- `404 {"detail":{"error":"User account not found"}}`
+- `404 {"detail":{"error":"User profile not found"}}`
+- `404 {"detail":{"error":"Listing not found"}}`
+- `400 {"detail":{"error":"Use looking-for reports for this listing"}}`
+
 Primary key:
 
 - `report_id`
@@ -2595,6 +2659,35 @@ Fields:
 Base path:
 
 - `/api/v1/looking-for-reports`
+
+User reporting is supported via a custom POST route.
+
+#### POST `/api/v1/looking-for-reports/`
+
+Creates a report for a `looking_for` listing.
+
+Request body:
+
+```json
+{
+  "listing_id": 21,
+  "reporter_id": 12,
+  "reason": "Scam attempt",
+  "details": "User asks for off-platform payment"
+}
+```
+
+Behavior notes:
+
+- The listing must be a `looking_for` post.
+- Reports are created with `status = "open"`.
+
+Possible errors:
+
+- `404 {"detail":{"error":"User account not found"}}`
+- `404 {"detail":{"error":"User profile not found"}}`
+- `404 {"detail":{"error":"Listing not found"}}`
+- `400 {"detail":{"error":"Only looking-for listings can be reported here"}}`
 
 Primary key:
 
@@ -3174,6 +3267,35 @@ Fields:
 Base path:
 
 - `/api/v1/seller-reports`
+
+User reporting is supported via a custom POST route.
+
+#### POST `/api/v1/seller-reports/`
+
+Reports a seller account.
+
+Request body:
+
+```json
+{
+  "seller_id": 7,
+  "reporter_id": 12,
+  "reason": "Harassment",
+  "details": "Seller used abusive language in chat"
+}
+```
+
+Behavior notes:
+
+- The reported user must be a seller (`UserProfile.is_seller = true`).
+- Reports are created with `status = "open"`.
+
+Possible errors:
+
+- `404 {"detail":{"error":"User account not found"}}`
+- `404 {"detail":{"error":"User profile not found"}}`
+- `404 {"detail":{"error":"Seller profile not found"}}`
+- `400 {"detail":{"error":"Reported user is not a seller"}}`
 
 Primary key:
 
