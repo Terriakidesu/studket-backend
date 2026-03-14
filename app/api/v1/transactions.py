@@ -5,7 +5,8 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy import or_, func
+from sqlalchemy.orm import Session, aliased
 
 from app.api.v1.common import create_crud_router, serialize_model
 from app.db.models import Account, Listing, ListingInquiry, Notification, Transaction, TransactionQR, UserProfile
@@ -331,6 +332,174 @@ def cancel_transaction(
             "transaction": _serialize_transaction(transaction),
         }
     )
+
+
+@router.get("/users/{account_id}")
+def get_user_transactions(
+    account_id: int,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    _get_user_account_or_404(account_id, db)
+    rows = (
+        db.query(Transaction, Listing.listing_type, Listing.title)
+        .outerjoin(Listing, Listing.listing_id == Transaction.listing_id)
+        .filter(
+            or_(
+                Transaction.buyer_id == account_id,
+                Transaction.seller_id == account_id,
+            )
+        )
+        .order_by(Transaction.transaction_id.desc())
+        .all()
+    )
+    items = [
+        {
+            "role": "buyer" if transaction.buyer_id == account_id else "seller",
+            "listing_type": listing_type,
+            "listing_title": listing_title,
+            "is_looking_for": listing_type == "looking_for",
+            **_serialize_transaction(transaction),
+        }
+        for transaction, listing_type, listing_title in rows
+    ]
+    return jsonable_encoder(
+        {
+            "account_id": account_id,
+            "count": len(items),
+            "items": items,
+        }
+    )
+
+
+@router.get("/users/{account_id}/{transaction_id}")
+def get_user_transaction_detail(
+    account_id: int,
+    transaction_id: int,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    _get_user_account_or_404(account_id, db)
+
+    buyer_account = aliased(Account)
+    seller_account = aliased(Account)
+    buyer_profile = aliased(UserProfile)
+    seller_profile = aliased(UserProfile)
+    listing = aliased(Listing)
+    transaction_qr = aliased(TransactionQR)
+
+    latest_qr_subq = (
+        db.query(
+            TransactionQR.transaction_id.label("tq_transaction_id"),
+            func.max(TransactionQR.transaction_qr_id).label("latest_qr_id"),
+        )
+        .group_by(TransactionQR.transaction_id)
+        .subquery()
+    )
+
+    row = (
+        db.query(
+            Transaction.transaction_id.label("transaction_id"),
+            Transaction.listing_id.label("transaction_listing_id"),
+            Transaction.buyer_id.label("transaction_buyer_id"),
+            Transaction.seller_id.label("transaction_seller_id"),
+            Transaction.quantity.label("transaction_quantity"),
+            Transaction.agreed_price.label("transaction_agreed_price"),
+            Transaction.transaction_status.label("transaction_status"),
+            Transaction.completed_at.label("transaction_completed_at"),
+            listing.listing_id.label("listing_id"),
+            listing.seller_id.label("listing_seller_id"),
+            listing.share_token.label("listing_share_token"),
+            listing.title.label("listing_title"),
+            listing.description.label("listing_description"),
+            listing.price.label("listing_price"),
+            listing.budget_min.label("listing_budget_min"),
+            listing.budget_max.label("listing_budget_max"),
+            listing.listing_type.label("listing_type"),
+            listing.condition.label("listing_condition"),
+            listing.status.label("listing_status"),
+            listing.created_at.label("listing_created_at"),
+            buyer_account.account_id.label("buyer_account_id"),
+            buyer_account.email.label("buyer_email"),
+            buyer_account.username.label("buyer_username"),
+            buyer_account.account_type.label("buyer_account_type"),
+            buyer_account.account_status.label("buyer_account_status"),
+            buyer_account.warning_count.label("buyer_warning_count"),
+            buyer_account.last_warned_at.label("buyer_last_warned_at"),
+            buyer_account.created_at.label("buyer_account_created_at"),
+            buyer_profile.user_id.label("buyer_profile_user_id"),
+            buyer_profile.first_name.label("buyer_first_name"),
+            buyer_profile.last_name.label("buyer_last_name"),
+            buyer_profile.campus.label("buyer_campus"),
+            buyer_profile.profile_photo.label("buyer_profile_photo"),
+            buyer_profile.is_seller.label("buyer_is_seller"),
+            buyer_profile.is_verified.label("buyer_is_verified"),
+            buyer_profile.created_at.label("buyer_profile_created_at"),
+            seller_account.account_id.label("seller_account_id"),
+            seller_account.email.label("seller_email"),
+            seller_account.username.label("seller_username"),
+            seller_account.account_type.label("seller_account_type"),
+            seller_account.account_status.label("seller_account_status"),
+            seller_account.warning_count.label("seller_warning_count"),
+            seller_account.last_warned_at.label("seller_last_warned_at"),
+            seller_account.created_at.label("seller_account_created_at"),
+            seller_profile.user_id.label("seller_profile_user_id"),
+            seller_profile.first_name.label("seller_first_name"),
+            seller_profile.last_name.label("seller_last_name"),
+            seller_profile.campus.label("seller_campus"),
+            seller_profile.profile_photo.label("seller_profile_photo"),
+            seller_profile.is_seller.label("seller_is_seller"),
+            seller_profile.is_verified.label("seller_is_verified"),
+            seller_profile.created_at.label("seller_profile_created_at"),
+            transaction_qr.transaction_qr_id.label("transaction_qr_id"),
+            transaction_qr.qr_token.label("transaction_qr_token"),
+            transaction_qr.expires_at.label("transaction_qr_expires_at"),
+            transaction_qr.is_used.label("transaction_qr_is_used"),
+            transaction_qr.generated_by.label("transaction_qr_generated_by"),
+            transaction_qr.scanned_by.label("transaction_qr_scanned_by"),
+            transaction_qr.scanned_at.label("transaction_qr_scanned_at"),
+            transaction_qr.created_at.label("transaction_qr_created_at"),
+        )
+        .select_from(Transaction)
+        .outerjoin(listing, listing.listing_id == Transaction.listing_id)
+        .outerjoin(buyer_account, buyer_account.account_id == Transaction.buyer_id)
+        .outerjoin(buyer_profile, buyer_profile.user_id == Transaction.buyer_id)
+        .outerjoin(seller_account, seller_account.account_id == Transaction.seller_id)
+        .outerjoin(seller_profile, seller_profile.user_id == Transaction.seller_id)
+        .outerjoin(latest_qr_subq, latest_qr_subq.c.tq_transaction_id == Transaction.transaction_id)
+        .outerjoin(transaction_qr, transaction_qr.transaction_qr_id == latest_qr_subq.c.latest_qr_id)
+        .filter(Transaction.transaction_id == transaction_id)
+        .first()
+    )
+
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "Transaction not found"},
+        )
+
+    buyer_id = row.transaction_buyer_id
+    seller_id = row.transaction_seller_id
+    if buyer_id != account_id and seller_id != account_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": "You do not have access to this transaction"},
+        )
+
+    payload = dict(row._mapping)
+    agreed_price = payload.get("transaction_agreed_price")
+    if agreed_price is not None:
+        payload["transaction_agreed_price"] = float(agreed_price)
+    listing_price = payload.get("listing_price")
+    if listing_price is not None:
+        payload["listing_price"] = float(listing_price)
+    budget_min = payload.get("listing_budget_min")
+    if budget_min is not None:
+        payload["listing_budget_min"] = float(budget_min)
+    budget_max = payload.get("listing_budget_max")
+    if budget_max is not None:
+        payload["listing_budget_max"] = float(budget_max)
+
+    payload["role"] = "buyer" if buyer_id == account_id else "seller"
+    return jsonable_encoder(payload)
 
 
 crud_router = create_crud_router(

@@ -557,6 +557,11 @@ def get_user_listings(account_id: int, db: Session = Depends(get_db)) -> dict[st
     )
 
 
+@router.get("/users/{account_id}/listings")
+def get_user_listings_alias(account_id: int, db: Session = Depends(get_db)) -> dict[str, Any]:
+    return get_user_listings(account_id, db)
+
+
 @router.get("/users/{account_id}/looking-for")
 def get_user_looking_for_posts(account_id: int, db: Session = Depends(get_db)) -> dict[str, Any]:
     items = _get_account_listing_items(account_id, db, listing_type="looking_for")
