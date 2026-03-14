@@ -16,6 +16,12 @@ class CreateReviewPayload(BaseModel):
     rating: int
     comment: str | None = None
 
+class DirectReviewPayload(BaseModel):
+    reviewer_id: int
+    rating: int
+    comment: str | None = None
+
+
 
 def _get_user_account_or_404(account_id: int, db: Session) -> Account:
     account = (
@@ -193,15 +199,9 @@ def create_seller_review(
 @router.post("/users/{seller_id}/direct", status_code=status.HTTP_201_CREATED)
 def create_seller_review_direct(
     seller_id: int,
-    payload: CreateReviewPayload = Body(...),
+    payload: DirectReviewPayload = Body(...),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
-    if payload.transaction_id is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "transaction_id is not allowed for direct seller reviews"},
-        )
-
     _get_user_account_or_404(payload.reviewer_id, db)
     _get_user_account_or_404(seller_id, db)
 

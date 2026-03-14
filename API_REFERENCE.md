@@ -2976,7 +2976,6 @@ Possible errors:
 
 - `404 {"detail":{"error":"User account not found"}}`
 - `404 {"detail":{"error":"User profile not found"}}`
-- `400 {"detail":{"error":"transaction_id is not allowed for direct seller reviews"}}`
 - `400 {"detail":{"error":"Reviewer must have a completed transaction with this seller"}}`
 - `400 {"detail":{"error":"A review already exists for the latest completed transaction"}}`
 - `400 {"detail":{"error":"rating must be between 1 and 5"}}`
