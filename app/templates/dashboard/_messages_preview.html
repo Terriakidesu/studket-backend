@@ -18,7 +18,7 @@
                         <span class="muted">{{ conversation.participant1_username or "unknown" }} and {{ conversation.participant2_username or "unknown" }}</span>
                     </td>
                     <td>{{ conversation.message_count }}</td>
-                    <td>{{ conversation.last_message_at or conversation.created_at or "-" }}</td>
+                    <td>{{ conversation.last_message_at or conversation.created_at or "-"}}</td>
                 </tr>
                 {% else %}
                 <tr><td colspan="3" class="muted">No conversations available.</td></tr>
